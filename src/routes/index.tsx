@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ConceptPreview } from "@/components/pdp/concept-preview";
 import { BenchmarkPanel, RecommendationPanel, SourcesPanel } from "@/components/pdp/panels";
 import { CONCEPTS } from "@/lib/pdp/concepts";
-import { DEFAULT_CONTEXT_JSON, DEFAULT_MCAT, DEMO_PRODUCTS, parsePdpContext } from "@/lib/pdp/demo-data";
+import { DEFAULT_CONTEXT_JSON, DEFAULT_MCAT, DEMO_PRODUCTS, EMPTY_PRODUCT, parsePdpContext } from "@/lib/pdp/demo-data";
 import type { DeviceMode, FoldMode, PdpContext, Product } from "@/lib/pdp/types";
 
 interface Snapshot {
