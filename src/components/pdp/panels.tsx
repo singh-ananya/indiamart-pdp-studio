@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Info, ListChecks, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,8 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import type { Concept, PdpContext, Product } from "@/lib/pdp/types";
 
-export function BenchmarkPanel() {
-  const [text, setText] = useState("");
+interface BenchmarkPanelProps {
+  /** Notes are owned by the page so they survive Radix Tabs unmounting this panel. */
+  value: string;
+  onChange: (value: string) => void;
+}
+
+export function BenchmarkPanel({ value: text, onChange: setText }: BenchmarkPanelProps) {
   const lines = text
     .split("\n")
     .map((line) => line.trim())

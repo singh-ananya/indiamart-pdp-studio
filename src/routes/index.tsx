@@ -91,6 +91,7 @@ function Index() {
   const [fold, setFold] = useState<FoldMode>("first");
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [preferredId, setPreferredId] = useState<string | null>(null);
+  const [benchmarkNotes, setBenchmarkNotes] = useState("");
 
   const liveCtx = useMemo(() => parsePdpContext(contextJson), [contextJson]);
 
@@ -322,7 +323,7 @@ function Index() {
           </TabsContent>
 
           <TabsContent value="benchmark" className="mt-4">
-            <BenchmarkPanel />
+            <BenchmarkPanel value={benchmarkNotes} onChange={setBenchmarkNotes} />
           </TabsContent>
 
           <TabsContent value="sources" className="mt-4">
