@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ConceptPreview } from "@/components/pdp/concept-preview";
+import { ImageUrlField } from "@/components/pdp/image-url-field";
 import { BenchmarkPanel, RecommendationPanel, SourcesPanel } from "@/components/pdp/panels";
 import { CONCEPTS } from "@/lib/pdp/concepts";
 import {
@@ -172,7 +173,11 @@ function Index() {
                 {liveCtx.ok ? (
                   <Badge variant="secondary">Valid JSON</Badge>
                 ) : (
-                  <Badge variant="destructive">Invalid JSON: {liveCtx.error}</Badge>
+                  <Badge variant="destructive">
+                    {liveCtx.issues.length > 1
+                      ? `${liveCtx.issues.length} problems`
+                      : `Invalid: ${liveCtx.error}`}
+                  </Badge>
                 )}
               </div>
               <Textarea
@@ -183,9 +188,11 @@ function Index() {
                 onChange={(event) => setContextJson(event.target.value)}
               />
               {!liveCtx.ok && (
-                <p className="text-xs text-destructive">
-                  Fix the JSON to use brand, city, offer and USPs in previews.
-                </p>
+                <ul className="list-inside list-disc text-xs text-destructive">
+                  {liveCtx.issues.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
               )}
             </div>
 
@@ -215,6 +222,18 @@ function Index() {
                           aria-label={`Product ${index + 1} price`}
                         />
                         <Input
+                          value={product.priceMax}
+                          onChange={(e) => updateProduct(product.id, { priceMax: e.target.value })}
+                          placeholder="Max price ₹ (optional)"
+                          aria-label={`Product ${index + 1} maximum price`}
+                        />
+                        <Input
+                          value={product.unit}
+                          onChange={(e) => updateProduct(product.id, { unit: e.target.value })}
+                          placeholder="Unit, e.g. piece"
+                          aria-label={`Product ${index + 1} unit`}
+                        />
+                        <Input
                           value={product.moq}
                           onChange={(e) => updateProduct(product.id, { moq: e.target.value })}
                           placeholder="MOQ"
@@ -233,7 +252,7 @@ function Index() {
                         className="font-mono text-xs"
                         value={product.specs}
                         onChange={(e) => updateProduct(product.id, { specs: e.target.value })}
-                        placeholder={"Specs, one per line:\nMaterial: Steel"}
+                        placeholder={"ISQ / specs, one per line:\nMaterial: Steel"}
                         aria-label={`Product ${index + 1} specs`}
                       />
                       <Textarea
@@ -242,6 +261,11 @@ function Index() {
                         onChange={(e) => updateProduct(product.id, { description: e.target.value })}
                         placeholder="Short description"
                         aria-label={`Product ${index + 1} description`}
+                      />
+                      <ImageUrlField
+                        urls={product.imageUrls}
+                        onChange={(imageUrls) => updateProduct(product.id, { imageUrls })}
+                        label={`Product ${index + 1} image URLs`}
                       />
                     </CardContent>
                   </Card>

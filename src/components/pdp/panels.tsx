@@ -69,9 +69,11 @@ interface SourcesPanelProps {
 }
 
 export function SourcesPanel({ mcat, products, ctx, contextJson }: SourcesPanelProps) {
-  const contextKeys = (() => {
+  const usedKeys = (() => {
     try {
-      return Object.keys(JSON.parse(contextJson) as Record<string, unknown>);
+      const raw = JSON.parse(contextJson) as unknown;
+      if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return [];
+      return Object.keys(raw).filter((key) => !ctx.ignoredKeys.includes(key));
     } catch {
       return [];
     }
@@ -112,24 +114,29 @@ export function SourcesPanel({ mcat, products, ctx, contextJson }: SourcesPanelP
               JSON context
             </p>
             <p className="mt-1 flex flex-wrap gap-1.5">
-              {contextKeys.length > 0 ? (
-                contextKeys.map((key) => (
+              {ctx.ok && usedKeys.length > 0 ? (
+                usedKeys.map((key) => (
                   <Badge key={key} variant="secondary">
                     {key}
                   </Badge>
                 ))
               ) : (
-                <span className="text-muted-foreground">Not parsable — no keys used.</span>
+                <span className="text-muted-foreground">No context fields used.</span>
               )}
             </p>
+            {ctx.ignoredKeys.length > 0 && (
+              <p className="mt-2 text-muted-foreground">
+                Ignored (not used by the generator): {ctx.ignoredKeys.join(", ")}
+              </p>
+            )}
             {ctx.ok ? (
               <p className="mt-2 text-muted-foreground">
-                Status: valid JSON · brand &quot;{ctx.brand || "—"}&quot;, city &quot;
+                Status: valid · brand &quot;{ctx.brand || "—"}&quot;, city &quot;
                 {ctx.city || "—"}&quot;.
               </p>
             ) : (
               <p className="mt-2 text-destructive">
-                Status: invalid JSON ({ctx.error}) — concepts fall back to product card data.
+                Status: not used — {ctx.issues.join("; ")}. Previews fall back to product card data.
               </p>
             )}
           </div>
