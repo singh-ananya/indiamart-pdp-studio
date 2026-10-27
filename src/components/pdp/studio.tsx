@@ -11,6 +11,7 @@ import { ConceptPreview } from "@/components/pdp/concept-preview";
 import { ImageUrlField } from "@/components/pdp/image-url-field";
 import { BenchmarkPanel, RecommendationPanel, SourcesPanel } from "@/components/pdp/panels";
 import { StudioFileControls } from "@/components/pdp/studio-file-controls";
+import { ViewportControls } from "@/components/pdp/viewport-controls";
 import { usePdpStudio } from "@/hooks/use-pdp-studio";
 import { CONCEPTS } from "@/lib/pdp/concepts";
 import { EMPTY_PRODUCT } from "@/lib/pdp/demo-data";
@@ -208,6 +209,11 @@ export function PdpStudio() {
                   { value: "full", label: "Full PDP", icon: null },
                 ]}
               />
+              <ViewportControls
+                device={device}
+                viewport={state.viewports[device]}
+                onChange={(viewport) => dispatch({ type: "setViewport", device, viewport })}
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -326,6 +332,7 @@ export function PdpStudio() {
                             mcat={snapshot.mcat}
                             device={device}
                             fold={fold}
+                            viewport={state.viewports[device]}
                           />
                           <p className="text-xs text-muted-foreground">
                             <span className="font-medium">Best for:</span> {concept.bestFor}
