@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ConceptPreview } from "@/components/pdp/concept-preview";
 import { ImageUrlField } from "@/components/pdp/image-url-field";
 import { BenchmarkPanel, RecommendationPanel, SourcesPanel } from "@/components/pdp/panels";
+import { ProductPicker } from "@/components/pdp/product-picker";
 import { StudioFileControls } from "@/components/pdp/studio-file-controls";
 import { ViewportControls } from "@/components/pdp/viewport-controls";
 import { usePdpStudio } from "@/hooks/use-pdp-studio";
@@ -297,14 +298,21 @@ export function PdpStudio() {
               </Card>
             ) : (
               <>
+                <ProductPicker
+                  products={snapshot.products}
+                  selectedIndex={state.previewProductIndex}
+                  onSelect={(index) => dispatch({ type: "setPreviewProduct", index })}
+                />
                 <p className="text-sm text-muted-foreground">
-                  Concept 1 previews Product 1… concept {CONCEPTS.length} previews Product{" "}
-                  {CONCEPTS.length}. Edit inputs and press Generate again to refresh previews.
+                  All five concepts show the same product, so differences come from the layout
+                  alone. Edit inputs and press Generate again to refresh previews.
                 </p>
                 <div className="grid gap-4 xl:grid-cols-2">
                   {CONCEPTS.map((concept, index) => {
                     const product =
-                      snapshot.products[index] ?? snapshot.products[0] ?? EMPTY_PRODUCT;
+                      snapshot.products[state.previewProductIndex] ??
+                      snapshot.products[0] ??
+                      EMPTY_PRODUCT;
                     return (
                       <Card key={concept.id}>
                         <CardHeader className="pb-3">
