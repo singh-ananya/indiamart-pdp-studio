@@ -273,7 +273,10 @@ function Index() {
                 </p>
                 <div className="grid gap-4 xl:grid-cols-2">
                   {CONCEPTS.map((concept, index) => {
-                    const product = snapshot.products[index] ?? snapshot.products[0];
+                    const product =
+                      snapshot.products[index] ??
+                      snapshot.products[0] ??
+                      EMPTY_PRODUCT;
                     return (
                       <Card key={concept.id}>
                         <CardHeader className="pb-3">

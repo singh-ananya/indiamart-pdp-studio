@@ -72,18 +72,28 @@ export const DEFAULT_CONTEXT_JSON = `{
   ]
 }`;
 
+export const EMPTY_PRODUCT: Product = {
+  id: "empty",
+  name: "",
+  price: "",
+  moq: "",
+  highlights: "",
+  specs: "",
+  description: "",
+};
+
 export function parsePdpContext(raw: string): PdpContext {
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const str = (v: unknown) => (typeof v === "string" ? v : "");
     return {
       ok: true,
-      brand: str(parsed.brand),
-      category: str(parsed.category),
-      city: str(parsed.city),
-      offer: str(parsed.offer),
-      usps: Array.isArray(parsed.usps)
-        ? parsed.usps.map((u) => String(u)).filter(Boolean)
+      brand: str(parsed["brand"]),
+      category: str(parsed["category"]),
+      city: str(parsed["city"]),
+      offer: str(parsed["offer"]),
+      usps: Array.isArray(parsed["usps"])
+        ? parsed["usps"].map((u) => String(u)).filter(Boolean)
         : [],
     };
   } catch (error) {
