@@ -11,7 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { ConceptPreview } from "@/components/pdp/concept-preview";
 import { BenchmarkPanel, RecommendationPanel, SourcesPanel } from "@/components/pdp/panels";
 import { CONCEPTS } from "@/lib/pdp/concepts";
-import { DEFAULT_CONTEXT_JSON, DEFAULT_MCAT, DEMO_PRODUCTS, EMPTY_PRODUCT, parsePdpContext } from "@/lib/pdp/demo-data";
+import {
+  DEFAULT_CONTEXT_JSON,
+  DEFAULT_MCAT,
+  DEMO_PRODUCTS,
+  EMPTY_PRODUCT,
+  parsePdpContext,
+} from "@/lib/pdp/demo-data";
 import type { DeviceMode, FoldMode, PdpContext, Product } from "@/lib/pdp/types";
 
 interface Snapshot {
@@ -67,7 +73,8 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "IndiaMART PDP UI Generator" },
       {
         property: "og:description",
-        content: "Generate five distinct PDP layout concepts with mobile, desktop and first-fold previews.",
+        content:
+          "Generate five distinct PDP layout concepts with mobile, desktop and first-fold previews.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -112,8 +119,8 @@ function Index() {
             IndiaMART PDP UI Generator
           </h1>
           <p className="text-sm text-muted-foreground">
-            Design product detail page layouts for IndiaMART-style listings.
-            Everything you see is for layout design only.
+            Design product detail page layouts for IndiaMART-style listings. Everything you see is
+            for layout design only.
           </p>
         </div>
       </header>
@@ -123,8 +130,8 @@ function Index() {
           <CardHeader>
             <CardTitle>Step 1 — Brief</CardTitle>
             <CardDescription>
-              Fill the MCAT name, JSON context and five product cards, then
-              generate five layout concepts.
+              Fill the MCAT name, JSON context and five product cards, then generate five layout
+              concepts.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -260,23 +267,20 @@ function Index() {
             {!snapshot ? (
               <Card>
                 <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                  No concepts yet — fill the brief above and press
-                  &quot;Generate 5 Concepts&quot;.
+                  No concepts yet — fill the brief above and press &quot;Generate 5 Concepts&quot;.
                 </CardContent>
               </Card>
             ) : (
               <>
                 <p className="text-sm text-muted-foreground">
                   Concept {1} previews Product {1} (demo)… concept {CONCEPTS.length} previews
-                  Product {CONCEPTS.length} (demo). Edit inputs and press Generate again to
-                  refresh previews.
+                  Product {CONCEPTS.length} (demo). Edit inputs and press Generate again to refresh
+                  previews.
                 </p>
                 <div className="grid gap-4 xl:grid-cols-2">
                   {CONCEPTS.map((concept, index) => {
                     const product =
-                      snapshot.products[index] ??
-                      snapshot.products[0] ??
-                      EMPTY_PRODUCT;
+                      snapshot.products[index] ?? snapshot.products[0] ?? EMPTY_PRODUCT;
                     return (
                       <Card key={concept.id}>
                         <CardHeader className="pb-3">

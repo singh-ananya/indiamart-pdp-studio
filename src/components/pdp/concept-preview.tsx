@@ -1,11 +1,4 @@
-import {
-  BadgePercent,
-  ImageIcon,
-  MapPin,
-  ShieldCheck,
-  Sparkles,
-  Star,
-} from "lucide-react";
+import { BadgePercent, ImageIcon, MapPin, ShieldCheck, Sparkles, Star } from "lucide-react";
 import type {
   BlockKind,
   Concept,
@@ -57,9 +50,7 @@ function Block({ kind, product, ctx, mcat }: BlockProps) {
     case "price":
       return (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-lg font-bold text-brand-orange">
-            ₹{product.price}
-          </span>
+          <span className="text-lg font-bold text-brand-orange">₹{product.price}</span>
           <span className="text-[10px] text-muted-foreground">/ piece</span>
           <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
             MOQ: {product.moq}
@@ -86,7 +77,11 @@ function Block({ kind, product, ctx, mcat }: BlockProps) {
           {Array.from({ length: 5 }).map((_, i) => (
             <Star
               key={i}
-              className={i < 4 ? "size-3 fill-brand-orange text-brand-orange" : "size-3 text-muted-foreground/40"}
+              className={
+                i < 4
+                  ? "size-3 fill-brand-orange text-brand-orange"
+                  : "size-3 text-muted-foreground/40"
+              }
             />
           ))}
           <span className="ml-1">4.3 / 5 (demo rating)</span>
@@ -200,14 +195,7 @@ interface ConceptPreviewProps {
   fold: FoldMode;
 }
 
-export function ConceptPreview({
-  concept,
-  product,
-  ctx,
-  mcat,
-  device,
-  fold,
-}: ConceptPreviewProps) {
+export function ConceptPreview({ concept, product, ctx, mcat, device, fold }: ConceptPreviewProps) {
   const isDesktop = device === "desktop";
   const galleryLeads = concept.firstFold[0] === "gallery";
   const rest = galleryLeads ? concept.firstFold.slice(1) : concept.firstFold;

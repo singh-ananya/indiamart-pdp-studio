@@ -20,16 +20,17 @@ export function BenchmarkPanel() {
         <div className="space-y-1 text-sm">
           <p className="font-medium">No benchmark sources are fetched or invented.</p>
           <p className="text-muted-foreground">
-            This tool does not research competitors or marketplaces. Paste
-            benchmark notes you already have (for example from your own
-            account manager or marketplace reporting) and they will be listed
-            below as you wrote them.
+            This tool does not research competitors or marketplaces. Paste benchmark notes you
+            already have (for example from your own account manager or marketplace reporting) and
+            they will be listed below as you wrote them.
           </p>
         </div>
       </div>
       <Textarea
         rows={6}
-        placeholder={"One benchmark note per line, e.g.\nCompetitor A: faster CTA above fold\nCompetitor B: larger gallery"}
+        placeholder={
+          "One benchmark note per line, e.g.\nCompetitor A: faster CTA above fold\nCompetitor B: larger gallery"
+        }
         value={text}
         onChange={(event) => setText(event.target.value)}
       />
@@ -48,8 +49,8 @@ export function BenchmarkPanel() {
         </Card>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Nothing pasted yet — the comparison table stays empty on purpose
-          rather than showing made-up benchmarks.
+          Nothing pasted yet — the comparison table stays empty on purpose rather than showing
+          made-up benchmarks.
         </p>
       )}
     </div>
@@ -79,8 +80,8 @@ export function SourcesPanel({ mcat, products, ctx, contextJson }: SourcesPanelP
         <div className="space-y-1 text-sm">
           <p className="font-medium">No external research was performed.</p>
           <p className="text-muted-foreground">
-            Concepts are generated locally from the inputs below only. No web
-            search, external API, or benchmark data feeds this tool.
+            Concepts are generated locally from the inputs below only. No web search, external API,
+            or benchmark data feeds this tool.
           </p>
         </div>
       </div>
@@ -119,7 +120,8 @@ export function SourcesPanel({ mcat, products, ctx, contextJson }: SourcesPanelP
             </p>
             {ctx.ok ? (
               <p className="mt-2 text-muted-foreground">
-                Status: valid JSON · brand &quot;{ctx.brand || "—"}&quot;, city &quot;{ctx.city || "—"}&quot;.
+                Status: valid JSON · brand &quot;{ctx.brand || "—"}&quot;, city &quot;
+                {ctx.city || "—"}&quot;.
               </p>
             ) : (
               <p className="mt-2 text-destructive">
@@ -150,9 +152,8 @@ export function RecommendationPanel({ concepts, preferredId, onPick }: Recommend
           <div className="space-y-1 text-sm">
             <p className="font-medium">No concept selected yet.</p>
             <p className="text-muted-foreground">
-              Mark the concept you prefer in the Five Concepts tab. Your choice
-              appears here with its design intent — the tool does not score
-              concepts for you.
+              Mark the concept you prefer in the Five Concepts tab. Your choice appears here with
+              its design intent — the tool does not score concepts for you.
             </p>
           </div>
         </div>
@@ -169,8 +170,8 @@ export function RecommendationPanel({ concepts, preferredId, onPick }: Recommend
               First fold: {preferred.firstFold.join(" → ")}
             </p>
             <p className="text-xs text-muted-foreground">
-              This recommendation reflects your own selection. Validate with
-              real buyer data before rolling out.
+              This recommendation reflects your own selection. Validate with real buyer data before
+              rolling out.
             </p>
           </CardContent>
         </Card>
