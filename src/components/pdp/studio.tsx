@@ -314,7 +314,7 @@ export function PdpStudio() {
                       snapshot.products[0] ??
                       EMPTY_PRODUCT;
                     return (
-                      <Card key={concept.id}>
+                      <Card key={concept.id} className="min-w-0">
                         <CardHeader className="pb-3">
                           <div className="flex items-start justify-between gap-2">
                             <div>
