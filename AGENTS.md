@@ -11,3 +11,12 @@
 
 - The IndiaMART PDP UI Generator is client-side only: concepts are generated locally from user inputs, with no authentication, database, or external API calls. Why: the user asked for a simple, maintainable first version without a backend.
 - Never fabricate benchmark sources or research findings; Benchmark/Sources tabs show only user-pasted notes or actual in-app inputs. Why: the user requires honest, non-invented data.
+
+## PDP Studio conventions (added on feature/pdp-studio-phase-0-2)
+
+- All five concepts preview the same selected product (`previewProductIndex`). Why: layouts must be compared on identical content.
+- Previews render only user-supplied data. Missing seller rating, tenure, trust signals, price, images or ISQ values show a "not provided" slot — never a placeholder value. Why: no fabricated data.
+- The PDP context JSON is validated by the Zod schema in `src/lib/pdp/schema.ts`; new context fields go there, stay optional, and must not get default values.
+- Studio state lives in `usePdpStudio` (`src/hooks/use-pdp-studio.ts`) and persists to `localStorage` key `indiamart-pdp-studio:v1`. Bump the version and keep old saves loadable when the shape changes. Imports must be fully validated before applying; an invalid import must not change state.
+- Device previews render at real CSS-pixel size inside `DeviceFrame` and are scaled visually; the frame's height is the fold. Keep block sizes at real scale (no tiny text) or the fold report becomes meaningless.
+- Panel state that must survive tab switches lives in the page, not inside `TabsContent` (Radix unmounts inactive tabs).

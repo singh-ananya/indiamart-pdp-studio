@@ -1,4 +1,18 @@
-import type { Concept } from "./types";
+import type { BlockKind, Concept } from "./types";
+
+export const BLOCK_LABELS: Record<BlockKind, string> = {
+  gallery: "Gallery",
+  title: "Title",
+  price: "Price",
+  cta: "Enquiry buttons",
+  ratings: "Ratings",
+  offer: "Offer strip",
+  highlights: "Highlights",
+  specs: "ISQ / specs",
+  description: "Description",
+  trust: "Trust signals",
+  seller: "Seller card",
+};
 
 /**
  * The five PDP layout directions are fixed, local design patterns.

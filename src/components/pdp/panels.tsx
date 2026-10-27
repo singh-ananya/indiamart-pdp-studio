@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Info, ListChecks, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,8 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import type { Concept, PdpContext, Product } from "@/lib/pdp/types";
 
-export function BenchmarkPanel() {
-  const [text, setText] = useState("");
+interface BenchmarkPanelProps {
+  /** Notes are owned by the page so they survive Radix Tabs unmounting this panel. */
+  value: string;
+  onChange: (value: string) => void;
+}
+
+export function BenchmarkPanel({ value: text, onChange: setText }: BenchmarkPanelProps) {
   const lines = text
     .split("\n")
     .map((line) => line.trim())
@@ -20,16 +24,17 @@ export function BenchmarkPanel() {
         <div className="space-y-1 text-sm">
           <p className="font-medium">No benchmark sources are fetched or invented.</p>
           <p className="text-muted-foreground">
-            This tool does not research competitors or marketplaces. Paste
-            benchmark notes you already have (for example from your own
-            account manager or marketplace reporting) and they will be listed
-            below as you wrote them.
+            This tool does not research competitors or marketplaces. Paste benchmark notes you
+            already have (for example from your own account manager or marketplace reporting) and
+            they will be listed below as you wrote them.
           </p>
         </div>
       </div>
       <Textarea
         rows={6}
-        placeholder={"One benchmark note per line, e.g.\nCompetitor A: faster CTA above fold\nCompetitor B: larger gallery"}
+        placeholder={
+          "One benchmark note per line, e.g.\nCompetitor A: faster CTA above fold\nCompetitor B: larger gallery"
+        }
         value={text}
         onChange={(event) => setText(event.target.value)}
       />
@@ -48,8 +53,8 @@ export function BenchmarkPanel() {
         </Card>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Nothing pasted yet — the comparison table stays empty on purpose
-          rather than showing made-up benchmarks.
+          Nothing pasted yet — the comparison table stays empty on purpose rather than showing
+          made-up benchmarks.
         </p>
       )}
     </div>
@@ -64,9 +69,11 @@ interface SourcesPanelProps {
 }
 
 export function SourcesPanel({ mcat, products, ctx, contextJson }: SourcesPanelProps) {
-  const contextKeys = (() => {
+  const usedKeys = (() => {
     try {
-      return Object.keys(JSON.parse(contextJson) as Record<string, unknown>);
+      const raw = JSON.parse(contextJson) as unknown;
+      if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return [];
+      return Object.keys(raw).filter((key) => !ctx.ignoredKeys.includes(key));
     } catch {
       return [];
     }
@@ -79,8 +86,8 @@ export function SourcesPanel({ mcat, products, ctx, contextJson }: SourcesPanelP
         <div className="space-y-1 text-sm">
           <p className="font-medium">No external research was performed.</p>
           <p className="text-muted-foreground">
-            Concepts are generated locally from the inputs below only. No web
-            search, external API, or benchmark data feeds this tool.
+            Concepts are generated locally from the inputs below only. No web search, external API,
+            or benchmark data feeds this tool.
           </p>
         </div>
       </div>
@@ -107,23 +114,29 @@ export function SourcesPanel({ mcat, products, ctx, contextJson }: SourcesPanelP
               JSON context
             </p>
             <p className="mt-1 flex flex-wrap gap-1.5">
-              {contextKeys.length > 0 ? (
-                contextKeys.map((key) => (
+              {ctx.ok && usedKeys.length > 0 ? (
+                usedKeys.map((key) => (
                   <Badge key={key} variant="secondary">
                     {key}
                   </Badge>
                 ))
               ) : (
-                <span className="text-muted-foreground">Not parsable — no keys used.</span>
+                <span className="text-muted-foreground">No context fields used.</span>
               )}
             </p>
+            {ctx.ignoredKeys.length > 0 && (
+              <p className="mt-2 text-muted-foreground">
+                Ignored (not used by the generator): {ctx.ignoredKeys.join(", ")}
+              </p>
+            )}
             {ctx.ok ? (
               <p className="mt-2 text-muted-foreground">
-                Status: valid JSON · brand &quot;{ctx.brand || "—"}&quot;, city &quot;{ctx.city || "—"}&quot;.
+                Status: valid · brand &quot;{ctx.brand || "—"}&quot;, city &quot;
+                {ctx.city || "—"}&quot;.
               </p>
             ) : (
               <p className="mt-2 text-destructive">
-                Status: invalid JSON ({ctx.error}) — concepts fall back to product card data.
+                Status: not used — {ctx.issues.join("; ")}. Previews fall back to product card data.
               </p>
             )}
           </div>
@@ -150,9 +163,8 @@ export function RecommendationPanel({ concepts, preferredId, onPick }: Recommend
           <div className="space-y-1 text-sm">
             <p className="font-medium">No concept selected yet.</p>
             <p className="text-muted-foreground">
-              Mark the concept you prefer in the Five Concepts tab. Your choice
-              appears here with its design intent — the tool does not score
-              concepts for you.
+              Mark the concept you prefer in the Five Concepts tab. Your choice appears here with
+              its design intent — the tool does not score concepts for you.
             </p>
           </div>
         </div>
@@ -169,8 +181,8 @@ export function RecommendationPanel({ concepts, preferredId, onPick }: Recommend
               First fold: {preferred.firstFold.join(" → ")}
             </p>
             <p className="text-xs text-muted-foreground">
-              This recommendation reflects your own selection. Validate with
-              real buyer data before rolling out.
+              This recommendation reflects your own selection. Validate with real buyer data before
+              rolling out.
             </p>
           </CardContent>
         </Card>
