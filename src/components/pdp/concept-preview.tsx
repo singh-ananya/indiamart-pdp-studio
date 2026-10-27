@@ -121,8 +121,14 @@ function Block({ kind, product, ctx, mcat }: BlockProps) {
     case "specs": {
       const rows = product.specs
         .split("\n")
-        .map((line) => line.split(/:(.*)/))
-        .filter((parts) => parts[0]?.trim() && parts[1]?.trim());
+        .map((line) => {
+          const idx = line.indexOf(":");
+          if (idx === -1) return null;
+          const key = line.slice(0, idx).trim();
+          const value = line.slice(idx + 1).trim();
+          return key && value ? { key, value } : null;
+        })
+        .filter((row): row is { key: string; value: string } => row !== null);
       if (rows.length === 0) {
         return (
           <p className="text-[11px] text-muted-foreground">
@@ -134,12 +140,10 @@ function Block({ kind, product, ctx, mcat }: BlockProps) {
         <div className="overflow-hidden rounded-md border">
           <table className="w-full text-[11px]">
             <tbody>
-              {rows.map(([k, v], i) => (
+              {rows.map((row, i) => (
                 <tr key={i} className="border-b last:border-b-0">
-                  <td className="w-1/3 bg-muted/50 px-2 py-1 font-medium">
-                    {k.trim()}
-                  </td>
-                  <td className="px-2 py-1">{v.trim()}</td>
+                  <td className="w-1/3 bg-muted/50 px-2 py-1 font-medium">{row.key}</td>
+                  <td className="px-2 py-1">{row.value}</td>
                 </tr>
               ))}
             </tbody>
