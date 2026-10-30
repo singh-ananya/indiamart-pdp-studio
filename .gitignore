@@ -16,6 +16,14 @@ dist-ssr
 .nitro
 *.local
 
+# Environment files: never commit keys (only .env.example, which holds no secrets)
+.env
+.env.*
+!.env.example
+
+# The MCAT master file is internal data; it belongs in Supabase Storage, not in git
+mcatcontext*.json
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

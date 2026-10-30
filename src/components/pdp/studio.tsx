@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Monitor, Smartphone, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ConceptPreview } from "@/components/pdp/concept-preview";
 import { ImageUrlField } from "@/components/pdp/image-url-field";
+import { McatConfigPanel, McatRankingSummary } from "@/components/pdp/mcat-config-panel";
 import { BenchmarkPanel, RecommendationPanel, SourcesPanel } from "@/components/pdp/panels";
 import { ProductPicker } from "@/components/pdp/product-picker";
 import { StudioFileControls } from "@/components/pdp/studio-file-controls";
 import { ViewportControls } from "@/components/pdp/viewport-controls";
+import { useMcatConfig } from "@/hooks/use-mcat-config";
 import { usePdpStudio } from "@/hooks/use-pdp-studio";
 import { CONCEPTS } from "@/lib/pdp/concepts";
 import { EMPTY_PRODUCT } from "@/lib/pdp/demo-data";
+import { getMcatRanking, levelText } from "@/lib/pdp/mcat-config";
+import type { McatConfigCache, McatConfigRemote } from "@/lib/pdp/mcat-config-store";
 import { parsePdpContext } from "@/lib/pdp/schema";
 import type { Product } from "@/lib/pdp/types";
 
@@ -130,14 +134,31 @@ function ProductCardEditor({ product, index, onChange }: ProductCardEditorProps)
   );
 }
 
-export function PdpStudio() {
+interface PdpStudioProps {
+  /** MCAT configuration storage; defaults to Supabase plus this browser's IndexedDB cache. */
+  mcatStorage?: { remote?: McatConfigRemote; cache?: McatConfigCache };
+}
+
+export function PdpStudio({ mcatStorage }: PdpStudioProps = {}) {
   const { state, dispatch, revision, saveStatus, loadWarning, importText, reset } = usePdpStudio();
-  const { mcat, contextJson, products, device, fold, snapshot, preferredId } = state;
+  const { mcat, mcatId, contextJson, products, device, fold, snapshot, preferredId } = state;
+  const mcatConfig = useMcatConfig(mcatStorage);
+  const activeConfig = mcatConfig.active;
+
+  const [tab, setTab] = useState("concepts");
 
   const liveCtx = useMemo(() => parsePdpContext(contextJson), [contextJson]);
   const snapshotCtx = useMemo(
     () => (snapshot ? parsePdpContext(snapshot.contextJson) : null),
     [snapshot],
+  );
+  const liveRanking = useMemo(
+    () => (activeConfig ? getMcatRanking(activeConfig.config, mcatId) : null),
+    [activeConfig, mcatId],
+  );
+  const snapshotRanking = useMemo(
+    () => (activeConfig && snapshot ? getMcatRanking(activeConfig.config, snapshot.mcatId) : null),
+    [activeConfig, snapshot],
   );
 
   return (
@@ -167,12 +188,13 @@ export function PdpStudio() {
             {loadWarning}
           </p>
         )}
+        <McatConfigPanel mcat={mcatConfig} />
         <Card>
           <CardHeader>
             <CardTitle>Step 1 — Brief</CardTitle>
             <CardDescription>
-              Fill the MCAT name, JSON context and five product cards, then generate five layout
-              concepts.
+              Set the MCAT and preview options, fill the Product Cards and JSON Context tabs, then
+              generate five layout concepts.
             </CardDescription>
             <StudioFileControls
               state={state}
@@ -191,6 +213,28 @@ export function PdpStudio() {
                   onChange={(event) => dispatch({ type: "setMcat", mcat: event.target.value })}
                   placeholder="e.g. Water Bottles"
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mcat-id">MCAT ID</Label>
+                <Input
+                  id="mcat-id"
+                  inputMode="numeric"
+                  value={mcatId}
+                  onChange={(event) => dispatch({ type: "setMcatId", mcatId: event.target.value })}
+                  placeholder="e.g. 1"
+                  aria-describedby="mcat-id-status"
+                />
+                <p id="mcat-id-status" className="text-xs text-muted-foreground">
+                  {!activeConfig
+                    ? "Load an MCAT configuration to look IDs up."
+                    : !mcatId.trim()
+                      ? "Optional — connects the concepts to this MCAT's configuration."
+                      : liveRanking
+                        ? `Found: ${liveRanking
+                            .map((e) => `${e.dimension ?? e.raw.dimension} ${levelText(e)}`)
+                            .join(", ")}`
+                        : "Not in the active configuration."}
+                </p>
               </div>
               <Segmented
                 label="Preview device"
@@ -217,58 +261,24 @@ export function PdpStudio() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="context-json">JSON context editor</Label>
-                {liveCtx.ok ? (
-                  <Badge variant="secondary">Valid JSON</Badge>
-                ) : (
-                  <Badge variant="destructive">
-                    {liveCtx.issues.length > 1
-                      ? `${liveCtx.issues.length} problems`
-                      : `Invalid: ${liveCtx.error}`}
-                  </Badge>
-                )}
-              </div>
-              <Textarea
-                id="context-json"
-                rows={8}
-                className="font-mono text-xs"
-                value={contextJson}
-                onChange={(event) =>
-                  dispatch({ type: "setContextJson", contextJson: event.target.value })
-                }
-              />
-              {!liveCtx.ok && (
-                <ul className="list-inside list-disc text-xs text-destructive">
-                  {liveCtx.issues.map((issue) => (
-                    <li key={issue}>{issue}</li>
-                  ))}
-                </ul>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Optional fields: isqAttributes, sellerRating, ratingCount, memberSince, gstVerified,
-                verifiedSupplier, responseRate. Leave out anything you don&apos;t have — previews
-                show it as not provided.
+            <p className="text-xs text-muted-foreground">
+              Edit the five products in the <span className="font-medium">Product Cards</span> tab
+              and the seller and category details in the{" "}
+              <span className="font-medium">JSON Context</span> tab below.
+            </p>
+            {!liveCtx.ok && (
+              <p role="alert" className="text-xs text-destructive">
+                The JSON context has {liveCtx.issues.length > 1 ? "problems" : "a problem"}, so
+                previews will not use it.{" "}
+                <button
+                  type="button"
+                  className="font-medium underline underline-offset-2"
+                  onClick={() => setTab("context")}
+                >
+                  Open the JSON Context tab
+                </button>
               </p>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Product cards (five)</Label>
-                <Badge variant="secondary">Demo data</Badge>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {products.map((product, index) => (
-                  <ProductCardEditor
-                    key={`${product.id}-${revision}`}
-                    product={product}
-                    index={index}
-                    onChange={(patch) => dispatch({ type: "updateProduct", id: product.id, patch })}
-                  />
-                ))}
-              </div>
-            </div>
+            )}
 
             <Button
               size="lg"
@@ -281,9 +291,11 @@ export function PdpStudio() {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="concepts">
+        <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="h-auto flex-wrap">
             <TabsTrigger value="concepts">Five Concepts</TabsTrigger>
+            <TabsTrigger value="products">Product Cards</TabsTrigger>
+            <TabsTrigger value="context">JSON Context</TabsTrigger>
             <TabsTrigger value="benchmark">Benchmark Comparison</TabsTrigger>
             <TabsTrigger value="sources">Sources</TabsTrigger>
             <TabsTrigger value="recommendation">Final Recommendation</TabsTrigger>
@@ -307,6 +319,11 @@ export function PdpStudio() {
                   All five concepts show the same product, so differences come from the layout
                   alone. Edit inputs and press Generate again to refresh previews.
                 </p>
+                <McatRankingSummary
+                  mcatId={snapshot.mcatId}
+                  ranking={snapshotRanking}
+                  active={activeConfig}
+                />
                 <div className="grid gap-4 xl:grid-cols-2">
                   {CONCEPTS.map((concept, index) => {
                     const product =
@@ -341,6 +358,7 @@ export function PdpStudio() {
                             device={device}
                             fold={fold}
                             viewport={state.viewports[device]}
+                            mcatRanking={snapshotRanking}
                           />
                           <p className="text-xs text-muted-foreground">
                             <span className="font-medium">Best for:</span> {concept.bestFor}
@@ -352,6 +370,73 @@ export function PdpStudio() {
                 </div>
               </>
             )}
+          </TabsContent>
+
+          {/* Kept mounted (only hidden) so half-typed image URLs survive tab switches. */}
+          <TabsContent
+            value="products"
+            forceMount
+            hidden={tab !== "products"}
+            className="mt-4 space-y-3"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                Edit the five products, then press &quot;Generate 5 Concepts&quot; in the brief to
+                refresh the previews.
+              </p>
+              <Badge variant="secondary">Demo data</Badge>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {products.map((product, index) => (
+                <ProductCardEditor
+                  key={`${product.id}-${revision}`}
+                  product={product}
+                  index={index}
+                  onChange={(patch) => dispatch({ type: "updateProduct", id: product.id, patch })}
+                />
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* The text lives in page state, so unmounting this tab loses nothing. */}
+          <TabsContent value="context" className="mt-4 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="context-json">JSON context editor</Label>
+              {liveCtx.ok ? (
+                <Badge variant="secondary">Valid JSON</Badge>
+              ) : (
+                <Badge variant="destructive">
+                  {liveCtx.issues.length > 1
+                    ? `${liveCtx.issues.length} problems`
+                    : `Invalid: ${liveCtx.error}`}
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Seller and category details shared by all five products. Press &quot;Generate 5
+              Concepts&quot; in the brief to refresh the previews after editing.
+            </p>
+            <Textarea
+              id="context-json"
+              rows={12}
+              className="font-mono text-xs"
+              value={contextJson}
+              onChange={(event) =>
+                dispatch({ type: "setContextJson", contextJson: event.target.value })
+              }
+            />
+            {!liveCtx.ok && (
+              <ul className="list-inside list-disc text-xs text-destructive">
+                {liveCtx.issues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Optional fields: isqAttributes, sellerRating, ratingCount, memberSince, gstVerified,
+              verifiedSupplier, responseRate. Leave out anything you don&apos;t have — previews show
+              it as not provided.
+            </p>
           </TabsContent>
 
           <TabsContent value="benchmark" className="mt-4">
@@ -367,6 +452,14 @@ export function PdpStudio() {
               products={snapshot ? snapshot.products : products}
               ctx={snapshotCtx ?? liveCtx}
               contextJson={snapshot ? snapshot.contextJson : contextJson}
+              mcatId={snapshot ? snapshot.mcatId : mcatId.trim()}
+              mcatConfig={
+                activeConfig && {
+                  fileName: activeConfig.version.fileName,
+                  version: activeConfig.version.version,
+                  uploadedAt: activeConfig.version.uploadedAt,
+                }
+              }
             />
           </TabsContent>
 
