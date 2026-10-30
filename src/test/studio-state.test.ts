@@ -31,6 +31,29 @@ describe("storage round trip", () => {
     expect(loaded).toEqual({ status: "loaded", state });
   });
 
+  it("loads version 1 saves from before MCAT IDs existed", () => {
+    const state = studioReducer(createDefaultState(), { type: "generate" });
+    const { mcatId: _id, snapshot, ...rest } = state;
+    const { mcatId: _snapId, ...v1Snapshot } = snapshot!;
+    const v1 = JSON.stringify({ ...rest, version: 1, snapshot: v1Snapshot });
+
+    const loaded = deserializeState(v1);
+    expect(loaded.status).toBe("loaded");
+    if (loaded.status !== "loaded") return;
+    expect(loaded.state.mcatId).toBe("");
+    expect(loaded.state.snapshot?.mcatId).toBe("");
+    expect(loaded.state.mcat).toBe(state.mcat);
+  });
+
+  it("saves as version 2 and keeps the MCAT ID in the brief and snapshot", () => {
+    let state = studioReducer(createDefaultState(), { type: "setMcatId", mcatId: " 42 " });
+    state = studioReducer(state, { type: "generate" });
+    expect(state.snapshot?.mcatId).toBe("42");
+    const raw = serializeState(state);
+    expect(JSON.parse(raw)).toMatchObject({ version: 2, mcatId: " 42 " });
+    expect(deserializeState(raw)).toEqual({ status: "loaded", state });
+  });
+
   it("reports empty and unreadable storage instead of throwing", () => {
     expect(deserializeState(null)).toEqual({ status: "empty" });
     expect(deserializeState("{oops").status).toBe("unreadable");
@@ -50,6 +73,21 @@ describe("export", () => {
     expect(imported.data.mcat).toBe(state.mcat);
     expect(imported.data.products).toEqual(state.products);
     expect(JSON.parse(imported.data.contextJson)).toEqual(JSON.parse(state.contextJson));
+  });
+
+  it("carries the MCAT ID through export and import", () => {
+    const state = studioReducer(createDefaultState(), { type: "setMcatId", mcatId: "137347" });
+    const exported = exportStudioFile(state);
+    if (!exported.ok) throw new Error(exported.error);
+    const imported = importStudioFile(exported.text);
+    if (!imported.ok) throw new Error(imported.errors.join("; "));
+    expect(imported.data.mcatId).toBe("137347");
+  });
+
+  it("imports files exported before MCAT IDs existed", () => {
+    const imported = importStudioFile(validFile());
+    if (!imported.ok) throw new Error(imported.errors.join("; "));
+    expect(imported.data.mcatId).toBe("");
   });
 
   it("refuses to export while the context is invalid", () => {

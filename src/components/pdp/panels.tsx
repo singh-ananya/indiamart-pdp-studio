@@ -66,9 +66,19 @@ interface SourcesPanelProps {
   products: Product[];
   ctx: PdpContext;
   contextJson: string;
+  mcatId?: string;
+  /** Active MCAT configuration file; null when none is loaded. */
+  mcatConfig?: { fileName: string; version: string; uploadedAt: string } | null;
 }
 
-export function SourcesPanel({ mcat, products, ctx, contextJson }: SourcesPanelProps) {
+export function SourcesPanel({
+  mcat,
+  products,
+  ctx,
+  contextJson,
+  mcatId = "",
+  mcatConfig = null,
+}: SourcesPanelProps) {
   const usedKeys = (() => {
     try {
       const raw = JSON.parse(contextJson) as unknown;
@@ -86,8 +96,9 @@ export function SourcesPanel({ mcat, products, ctx, contextJson }: SourcesPanelP
         <div className="space-y-1 text-sm">
           <p className="font-medium">No external research was performed.</p>
           <p className="text-muted-foreground">
-            Concepts are generated locally from the inputs below only. No web search, external API,
-            or benchmark data feeds this tool.
+            Concepts are generated locally from the inputs below only, including the MCAT
+            configuration file you imported. No web search, external API, or benchmark data feeds
+            this tool.
           </p>
         </div>
       </div>
@@ -98,6 +109,20 @@ export function SourcesPanel({ mcat, products, ctx, contextJson }: SourcesPanelP
               MCAT name
             </p>
             <p>{mcat}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              MCAT configuration
+            </p>
+            {mcatConfig ? (
+              <p>
+                {mcatConfig.fileName}
+                {mcatConfig.version && `, version ${mcatConfig.version}`} (shared in Supabase,
+                uploaded {mcatConfig.uploadedAt}) · MCAT ID {mcatId || "not set"}
+              </p>
+            ) : (
+              <p className="text-muted-foreground">No MCAT configuration loaded.</p>
+            )}
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

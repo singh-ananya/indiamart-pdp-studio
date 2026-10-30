@@ -11,6 +11,13 @@ import type {
 import { buildSpecRows, formatPrice, splitHighlights } from "@/lib/pdp/specs";
 import { BLOCK_LABELS } from "@/lib/pdp/concepts";
 import { buildFoldReport, type FoldReport } from "@/lib/pdp/devices";
+import {
+  DIMENSION_BLOCKS,
+  getMcatImageContext,
+  levelText,
+  placeMcatDimensions,
+  type McatRankingEntry,
+} from "@/lib/pdp/mcat-config";
 import { DEFAULT_VIEWPORTS, type Viewport } from "@/lib/pdp/studio-state";
 import { DeviceFrame } from "@/components/pdp/device-frame";
 
@@ -237,6 +244,62 @@ interface ConceptPreviewProps {
   device: DeviceMode;
   fold: FoldMode;
   viewport?: Viewport;
+  /** Selected MCAT's importance ranking; omitted or null when there is none to check. */
+  mcatRanking?: McatRankingEntry[] | null | undefined;
+}
+
+const PLACEMENT_TEXT = {
+  above: "above the fold",
+  "not-above": "below the fold",
+  "not-in-layout": "not in this layout",
+} as const;
+
+/** How this concept places the MCAT's ranked dimensions, from the measured fold report. */
+function McatPlacementView({
+  ranking,
+  concept,
+  report,
+  product,
+}: {
+  ranking: McatRankingEntry[];
+  concept: Concept;
+  report: FoldReport;
+  product: Product;
+}) {
+  const placements = placeMcatDimensions(
+    ranking,
+    [...concept.firstFold, ...concept.below],
+    report.above,
+  );
+  const imageContext = getMcatImageContext(ranking);
+  return (
+    <div
+      className="space-y-1 rounded-md border bg-muted/30 px-3 py-2 text-xs"
+      aria-label="MCAT priority check"
+    >
+      <p className="font-medium">MCAT priorities in this concept</p>
+      <ul className="space-y-0.5">
+        {placements.map(({ entry, status }, i) => {
+          const missesHigh = entry.level === "high" && status !== "above";
+          return (
+            <li key={i} className={missesHigh ? "text-destructive" : undefined}>
+              {entry.raw.rank}. {entry.dimension} ({levelText(entry)}): {PLACEMENT_TEXT[status]}
+              {entry.dimension === "unit" && status !== "not-in-layout" && !product.unit.trim()
+                ? " — shown in the price block, but this product has no unit"
+                : ""}
+              {entry.show === false && " · Show: No in the file"}
+            </li>
+          );
+        })}
+      </ul>
+      {imageContext && DIMENSION_BLOCKS.image.some((b) => report.above.includes(b)) && (
+        <p className="text-muted-foreground">
+          Low-image MCAT: im-lite uses a different media block for it, so a gallery above the fold
+          may not match production.
+        </p>
+      )}
+    </div>
+  );
 }
 
 function FoldReportView({ report, fold }: { report: FoldReport; fold: number }) {
@@ -273,6 +336,7 @@ export function ConceptPreview({
   device,
   fold,
   viewport = DEFAULT_VIEWPORTS[device],
+  mcatRanking,
 }: ConceptPreviewProps) {
   const isDesktop = device === "desktop";
   const galleryLeads = isDesktop && concept.firstFold[0] === "gallery";
@@ -357,6 +421,14 @@ export function ConceptPreview({
           : "First fold: the frame shows exactly what fits on screen before scrolling."}
       </p>
       {report && <FoldReportView report={report} fold={viewport.height} />}
+      {report && mcatRanking && (
+        <McatPlacementView
+          ranking={mcatRanking}
+          concept={concept}
+          report={report}
+          product={product}
+        />
+      )}
     </div>
   );
 }

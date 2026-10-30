@@ -18,12 +18,15 @@ export interface Viewport {
 
 export interface StudioSnapshot {
   mcat: string;
+  /** MCAT ID looked up in the active MCAT configuration; empty when not set. */
+  mcatId: string;
   contextJson: string;
   products: Product[];
 }
 
 export interface StudioState {
   mcat: string;
+  mcatId: string;
   contextJson: string;
   products: Product[];
   device: DeviceMode;
@@ -44,6 +47,7 @@ export const DEFAULT_VIEWPORTS: Record<DeviceMode, Viewport> = {
 export function createDefaultState(): StudioState {
   return {
     mcat: DEFAULT_MCAT,
+    mcatId: "",
     contextJson: DEFAULT_CONTEXT_JSON,
     products: DEMO_PRODUCTS.map((p) => ({ ...p, imageUrls: [...p.imageUrls] })),
     device: "mobile",
@@ -84,9 +88,13 @@ const ProductsSchema = z
 // Browser storage (versioned; newer fields have defaults so old saves still load)
 // ---------------------------------------------------------------------------
 
+/** Version 2 added mcatId; version 1 saves load with it empty. */
+export const STORAGE_VERSION = 2;
+
 const StoredStateSchema = z.object({
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(STORAGE_VERSION)]),
   mcat: z.string(),
+  mcatId: z.string().default(""),
   contextJson: z.string(),
   products: ProductsSchema,
   device: z.enum(["mobile", "desktop"]),
@@ -101,14 +109,19 @@ const StoredStateSchema = z.object({
     .max(PRODUCT_SLOTS - 1)
     .default(0),
   snapshot: z
-    .object({ mcat: z.string(), contextJson: z.string(), products: ProductsSchema })
+    .object({
+      mcat: z.string(),
+      mcatId: z.string().default(""),
+      contextJson: z.string(),
+      products: ProductsSchema,
+    })
     .nullable(),
   preferredId: z.string().nullable(),
   benchmarkNotes: z.string(),
 });
 
 export function serializeState(state: StudioState): string {
-  return JSON.stringify({ version: 1, ...state });
+  return JSON.stringify({ version: STORAGE_VERSION, ...state });
 }
 
 export type LoadResult =
@@ -131,6 +144,7 @@ export function deserializeState(raw: string | null): LoadResult {
     status: "loaded",
     state: {
       mcat: d.mcat,
+      mcatId: d.mcatId,
       contextJson: d.contextJson,
       products: normalizeProducts(d.products),
       device: d.device,
@@ -140,6 +154,7 @@ export function deserializeState(raw: string | null): LoadResult {
       snapshot: d.snapshot
         ? {
             mcat: d.snapshot.mcat,
+            mcatId: d.snapshot.mcatId,
             contextJson: d.snapshot.contextJson,
             products: normalizeProducts(d.snapshot.products),
           }
@@ -160,6 +175,8 @@ const StudioFileSchema = z.object({
   }),
   version: z.literal(1, { errorMap: () => ({ message: "unsupported file version" }) }),
   mcat: z.string(),
+  /** Optional, so files exported before MCAT IDs existed still import. */
+  mcatId: z.string().trim().default(""),
   context: z.unknown(),
   products: ProductsSchema,
   benchmarkNotes: z.string().default(""),
@@ -184,6 +201,7 @@ export function exportStudioFile(state: StudioState): ExportResult {
     version: 1,
     exportedAt: new Date().toISOString(),
     mcat: state.mcat,
+    mcatId: state.mcatId,
     context,
     products: state.products.map(({ id: _id, ...rest }) => rest),
     benchmarkNotes: state.benchmarkNotes,
@@ -194,6 +212,7 @@ export function exportStudioFile(state: StudioState): ExportResult {
 
 export interface ImportedData {
   mcat: string;
+  mcatId: string;
   contextJson: string;
   products: Product[];
   benchmarkNotes: string;
@@ -244,6 +263,7 @@ export function importStudioFile(text: string): ImportResult {
     ok: true,
     data: {
       mcat: file.mcat,
+      mcatId: file.mcatId,
       contextJson: JSON.stringify(file.context, null, 2),
       products: normalizeProducts(file.products),
       benchmarkNotes: file.benchmarkNotes,
@@ -261,6 +281,7 @@ export type StudioAction =
   | { type: "hydrate"; state: StudioState }
   | { type: "reset" }
   | { type: "setMcat"; mcat: string }
+  | { type: "setMcatId"; mcatId: string }
   | { type: "setContextJson"; contextJson: string }
   | { type: "updateProduct"; id: string; patch: Partial<Product> }
   | { type: "setDevice"; device: DeviceMode }
@@ -280,6 +301,8 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
       return createDefaultState();
     case "setMcat":
       return { ...state, mcat: action.mcat };
+    case "setMcatId":
+      return { ...state, mcatId: action.mcatId };
     case "setContextJson":
       return { ...state, contextJson: action.contextJson };
     case "updateProduct":
@@ -305,6 +328,7 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
         ...state,
         snapshot: {
           mcat: state.mcat.trim() || DEFAULT_MCAT,
+          mcatId: state.mcatId.trim(),
           contextJson: state.contextJson,
           products: state.products.map((p) => ({ ...p, imageUrls: [...p.imageUrls] })),
         },
@@ -318,6 +342,7 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
       return {
         ...state,
         mcat: action.data.mcat,
+        mcatId: action.data.mcatId,
         contextJson: action.data.contextJson,
         products: action.data.products,
         benchmarkNotes: action.data.benchmarkNotes,
@@ -325,6 +350,7 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
         previewProductIndex: 0,
         snapshot: {
           mcat: action.data.mcat.trim() || DEFAULT_MCAT,
+          mcatId: action.data.mcatId,
           contextJson: action.data.contextJson,
           products: action.data.products,
         },
