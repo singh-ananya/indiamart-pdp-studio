@@ -332,6 +332,12 @@ export function PdpStudio({
       `Opened a saved result from ${new Date(result.createdAt).toLocaleString()} by ${result.createdBy}. No AI call was made.`,
     );
     setTab("concepts");
+    // The designs are further down the page; take the user there so the change is visible.
+    window.setTimeout(() => {
+      document
+        .getElementById("pdp-designs")
+        ?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    }, 50);
   };
 
   const previewProduct =
@@ -566,7 +572,7 @@ export function PdpStudio({
           </CardContent>
         </Card>
 
-        <Tabs value={tab} onValueChange={setTab}>
+        <Tabs id="pdp-designs" className="scroll-mt-4" value={tab} onValueChange={setTab}>
           <TabsList className="h-auto flex-wrap">
             <TabsTrigger value="concepts">Five Concepts</TabsTrigger>
             <TabsTrigger value="mcat">MCAT Ranking</TabsTrigger>

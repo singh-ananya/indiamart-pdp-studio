@@ -167,6 +167,30 @@ describe("View saved results", () => {
     expect(screen.getByRole("button", { name: "View saved results (1)" })).toBeInTheDocument();
   });
 
+  it("closes the dialog and scrolls to the designs after Open", async () => {
+    const scrolled: string[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this.id);
+    };
+    try {
+      const remote = createMemorySavedResultsRemote({
+        results: [{ id: 1, createdBy: USER, createdAt: "2026-11-03T09:00:00Z", data: savedData() }],
+      });
+      render(<PdpStudio mcatStorage={signedInStorage()} savedResultsRemote={remote} />);
+      fireEvent.click(await screen.findByRole("button", { name: "View saved results (1)" }));
+      const list = await screen.findByLabelText("Saved results list");
+      fireEvent.click(within(list).getByRole("button", { name: /^Open saved result/ }));
+      expect(screen.queryByLabelText("Saved results list")).not.toBeInTheDocument();
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 80));
+      });
+      expect(scrolled).toContain("pdp-designs");
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
   it("is disabled when signed out", () => {
     render(<PdpStudio savedResultsRemote={createMemorySavedResultsRemote()} />);
     expect(screen.getByRole("button", { name: "Sign in to view saved results" })).toBeDisabled();

@@ -37,8 +37,15 @@ export function SavedResultsButton({
   onOpen,
 }: SavedResultsButtonProps) {
   const [open, setOpen] = useState(false);
+  const [openError, setOpenError] = useState<string | null>(null);
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        setOpenError(null);
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" disabled={!signedIn}>
           <History className="size-3.5" />
@@ -47,7 +54,8 @@ export function SavedResultsButton({
             : "Sign in to view saved results"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      {/* minmax(0,1fr): long product names wrap/truncate instead of widening the dialog. */}
+      <DialogContent className="max-h-[85vh] max-w-2xl grid-cols-[minmax(0,1fr)] overflow-x-hidden overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Saved results</DialogTitle>
           <DialogDescription>
@@ -65,13 +73,21 @@ export function SavedResultsButton({
             ))}
           </div>
         )}
+        {openError && (
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/50 px-3 py-2 text-xs text-destructive"
+          >
+            {openError}
+          </p>
+        )}
         {results.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No saved results yet. They are added automatically each time someone generates AI
             designs.
           </p>
         ) : (
-          <ul className="space-y-2" aria-label="Saved results list">
+          <ul className="min-w-0 space-y-2" aria-label="Saved results list">
             {results.map((result) => {
               const { data } = result;
               const names = data.products.map((p) => p.name.trim()).filter(Boolean);
@@ -79,7 +95,7 @@ export function SavedResultsButton({
               return (
                 <li
                   key={result.id}
-                  className="flex flex-wrap items-start justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                  className="flex min-w-0 items-start justify-between gap-2 rounded-md border px-3 py-2 text-sm"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">
@@ -89,7 +105,7 @@ export function SavedResultsButton({
                     <p className="truncate text-xs text-muted-foreground" title={names.join(", ")}>
                       {names.length > 0 ? names.join(" · ") : "No product names"}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="break-words text-xs text-muted-foreground">
                       {aiCount} AI design(s) by {data.aiDesign.model} ·{" "}
                       {data.aiDesign.benchmarkPages} benchmark page(s) ·{" "}
                       {formatDate(result.createdAt)} · {result.createdBy}
@@ -97,10 +113,18 @@ export function SavedResultsButton({
                   </div>
                   <Button
                     size="sm"
+                    className="shrink-0"
                     aria-label={`Open saved result for ${data.mcat || "MCAT"} from ${formatDate(result.createdAt)}`}
                     onClick={() => {
-                      onOpen(result);
-                      setOpen(false);
+                      // Never fail silently: if opening goes wrong, say so here.
+                      try {
+                        onOpen(result);
+                        setOpen(false);
+                      } catch (error) {
+                        setOpenError(
+                          `This saved result could not be opened: ${error instanceof Error ? error.message : String(error)}`,
+                        );
+                      }
                     }}
                   >
                     Open
