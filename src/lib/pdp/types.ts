@@ -63,4 +63,14 @@ export interface Concept {
   bestFor: string;
   firstFold: BlockKind[];
   below: BlockKind[];
+  /** Which inputs shaped this layout, or why a default order was used. */
+  rationale?: string[];
+  /** "ai" when designed by the AI from the benchmark; otherwise a fixed strategy. */
+  source?: "ai" | "fixed";
+  /** ISQ names to feature in the highlights block (values always come from the product). */
+  keyIsq?: string[];
+  /** Enquiry button labels, from the IndiaMART-style list in `ai/design.ts`. */
+  cta?: { primary: string; secondary: string };
+  /** Benchmark pages the design draws on (resolved from saved research, never from AI text). */
+  benchmarkRefs?: { site: string; url: string }[];
 }

@@ -78,11 +78,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "IndiaMART PDP UI Generator" },
-      { name: "description", content: "Design IndiaMART-style product detail pages with five layout concepts. Demo data only." },
-      { name: "author", content: "IndiaMART PDP UI Generator" },
-      { property: "og:title", content: "IndiaMART PDP UI Generator" },
-      { property: "og:description", content: "Design IndiaMART-style product detail pages with five layout concepts." },
+      { title: "PDP Genie — IndiaMART PDP UI/UX benchmarking" },
+      { name: "description", content: "Benchmark and design IndiaMART product detail pages with five data-driven layout concepts." },
+      { name: "author", content: "PDP Genie" },
+      { property: "og:title", content: "PDP Genie — IndiaMART PDP UI/UX benchmarking" },
+      { property: "og:description", content: "Benchmark and design IndiaMART product detail pages with five data-driven layout concepts." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
@@ -91,6 +91,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "stylesheet",
         href: appCss,
+      },
+      // Inter: the only typeface in IndiaMART's Msite design guide (used by the PDP previews).
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap",
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],

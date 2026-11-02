@@ -3,9 +3,10 @@ import type { Product } from "./types";
 export { parsePdpContext } from "./schema";
 
 /**
- * Every value in this file is DEMO DATA for layout design only.
- * It must stay clearly labeled as demo — never present it as real
- * product, supplier, or benchmark information.
+ * Every value in this file is DEMO DATA. The app no longer starts with it: these
+ * values are kept as test fixtures and so `stripDemoData` (studio-state.ts) can
+ * remove untouched demo values from briefs saved by earlier versions.
+ * Never present them as real product, supplier, or benchmark information.
  */
 
 export const DEFAULT_MCAT = "Water Bottles (demo)";

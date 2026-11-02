@@ -11,6 +11,8 @@ interface DeviceFrameProps {
   viewportRef?: Ref<HTMLDivElement>;
   label: string;
   children: ReactNode;
+  /** Pinned to the screen, not the page — e.g. a sticky bottom action bar. */
+  overlay?: ReactNode;
 }
 
 /**
@@ -24,6 +26,7 @@ export function DeviceFrame({
   viewportRef,
   label,
   children,
+  overlay,
 }: DeviceFrameProps) {
   const outer = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState(0);
@@ -48,15 +51,7 @@ export function DeviceFrame({
         style={{ width: viewport.width * scale, height: viewport.height * scale }}
       >
         <div
-          ref={viewportRef}
-          role="region"
-          aria-label={label}
-          tabIndex={scrollable ? 0 : -1}
-          className={
-            scrollable
-              ? "overflow-x-hidden overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              : "overflow-hidden"
-          }
+          className="relative"
           style={{
             width: viewport.width,
             height: viewport.height,
@@ -64,7 +59,21 @@ export function DeviceFrame({
             transformOrigin: "top left",
           }}
         >
-          {children}
+          <div
+            ref={viewportRef}
+            role="region"
+            aria-label={label}
+            tabIndex={scrollable ? 0 : -1}
+            className={
+              scrollable
+                ? "overflow-x-hidden overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                : "overflow-hidden"
+            }
+            style={{ width: viewport.width, height: viewport.height }}
+          >
+            {children}
+          </div>
+          {overlay}
         </div>
       </div>
       <p className="mt-1.5 text-center text-xs text-muted-foreground">

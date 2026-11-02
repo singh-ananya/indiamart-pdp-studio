@@ -8,7 +8,7 @@ import type {
   PdpContext,
   Product,
 } from "@/lib/pdp/types";
-import { buildSpecRows, formatPrice, splitHighlights } from "@/lib/pdp/specs";
+import { buildSpecRows, formatPrice, keyIsqValues, splitHighlights } from "@/lib/pdp/specs";
 import { BLOCK_LABELS } from "@/lib/pdp/concepts";
 import { buildFoldReport, type FoldReport } from "@/lib/pdp/devices";
 import {
@@ -20,14 +20,11 @@ import {
 } from "@/lib/pdp/mcat-config";
 import { DEFAULT_VIEWPORTS, type Viewport } from "@/lib/pdp/studio-state";
 import { DeviceFrame } from "@/components/pdp/device-frame";
+import { IM_STICKY_BAR_HEIGHT } from "@/lib/pdp/indiamart-design";
 
 /** Visible placeholder for data the user has not supplied. Never shows a made-up value. */
 function MissingSlot({ children }: { children: string }) {
-  return (
-    <p className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
-      {children}
-    </p>
-  );
+  return <p className="im-missing">{children}</p>;
 }
 
 interface BlockProps {
@@ -35,16 +32,33 @@ interface BlockProps {
   product: Product;
   ctx: PdpContext;
   mcat: string;
+  concept: Concept;
 }
 
-function Block({ kind, product, ctx, mcat }: BlockProps) {
+/** Trust signals: at most 2 badges per card (design guide); the rest as 11px text. */
+function trustSignals(ctx: PdpContext) {
+  const badges: { label: string; verified: boolean }[] = [];
+  if (ctx.verifiedSupplier) badges.push({ label: "✓ Verified Supplier", verified: true });
+  if (ctx.gstVerified) badges.push({ label: "GST Verified", verified: false });
+  const text = ctx.responseRate !== undefined ? `Response Rate: ${ctx.responseRate}%` : "";
+  return { badges: badges.slice(0, 2), text };
+}
+
+/**
+ * One PDP block, styled with IndiaMART's Msite design system (`.im-pdp` in styles.css,
+ * from im-lite's design_guides.md). Content is only ever the product's real data.
+ */
+function Block({ kind, product, ctx, mcat, concept }: BlockProps) {
   switch (kind) {
     case "gallery": {
       const [main, ...thumbs] = product.imageUrls;
       return (
-        <div className="rounded-lg border bg-muted/40 p-2">
+        <div className="im-card" style={{ padding: 8 }}>
           <div className="grid grid-cols-4 gap-1">
-            <div className="col-span-4 flex aspect-[4/3] items-center justify-center overflow-hidden rounded-md border border-dashed bg-background">
+            <div
+              className="col-span-4 flex aspect-[4/3] items-center justify-center overflow-hidden"
+              style={{ borderRadius: 12, background: "var(--im-card)" }}
+            >
               {main ? (
                 <img
                   src={main}
@@ -54,16 +68,20 @@ function Block({ kind, product, ctx, mcat }: BlockProps) {
                   loading="lazy"
                 />
               ) : (
-                <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                <div
+                  className="flex flex-col items-center gap-1"
+                  style={{ color: "var(--im-600)" }}
+                >
                   <ImageIcon className="size-6" />
-                  <span className="text-xs">No image URL provided</span>
+                  <span className="im-caption">No image provided</span>
                 </div>
               )}
             </div>
             {thumbs.slice(0, 4).map((url) => (
               <div
                 key={url}
-                className="aspect-square overflow-hidden rounded-md border bg-background"
+                className="aspect-square overflow-hidden"
+                style={{ borderRadius: 8, border: "1px solid var(--im-300)" }}
               >
                 <img
                   src={url}
@@ -81,8 +99,8 @@ function Block({ kind, product, ctx, mcat }: BlockProps) {
     case "title":
       return (
         <div className="space-y-0.5">
-          <h4 className="text-base font-semibold leading-snug">{product.name}</h4>
-          <p className="text-sm text-muted-foreground">
+          <h4 className="im-title">{product.name}</h4>
+          <p className="im-sub">
             {ctx.brand || "Brand (not set)"} · {ctx.category || mcat}
           </p>
         </div>
@@ -91,27 +109,20 @@ function Block({ kind, product, ctx, mcat }: BlockProps) {
       const price = formatPrice(product.price, product.priceMax);
       if (!price) return <MissingSlot>Price not provided</MissingSlot>;
       return (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xl font-bold text-brand-orange">{price}</span>
-          {product.unit.trim() && (
-            <span className="text-xs text-muted-foreground">/ {product.unit.trim()}</span>
-          )}
-          {product.moq.trim() && (
-            <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">
-              MOQ: {product.moq.trim()}
-            </span>
-          )}
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="im-price">{price}</span>
+          {product.unit.trim() && <span className="im-caption">/ {product.unit.trim()}</span>}
+          {product.moq.trim() && <span className="im-caption">· MOQ: {product.moq.trim()}</span>}
         </div>
       );
     }
     case "cta":
+      // Design guide: at most 2 CTAs; teal primary, teal outline secondary, 48px, 8px radius.
       return (
         <div className="grid grid-cols-2 gap-2">
-          <div className="flex h-11 items-center justify-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground">
-            Get Best Price
-          </div>
-          <div className="flex h-11 items-center justify-center rounded-md border border-primary px-3 text-sm font-semibold text-primary">
-            Contact Supplier
+          <div className="im-btn im-btn-primary">{concept.cta?.primary ?? "Get Best Price"}</div>
+          <div className="im-btn im-btn-outline">
+            {concept.cta?.secondary ?? "Contact Supplier"}
           </div>
         </div>
       );
@@ -121,14 +132,15 @@ function Block({ kind, product, ctx, mcat }: BlockProps) {
       }
       const filled = Math.round(ctx.sellerRating);
       return (
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+        <div className="flex items-center gap-1" style={{ fontSize: 13 }}>
           {Array.from({ length: 5 }).map((_, i) => (
             <Star
               key={i}
-              className={
+              className="size-4"
+              style={
                 i < filled
-                  ? "size-4 fill-brand-orange text-brand-orange"
-                  : "size-4 text-muted-foreground/40"
+                  ? { fill: "var(--im-trending)", color: "var(--im-trending)" }
+                  : { color: "var(--im-300)" }
               }
             />
           ))}
@@ -140,46 +152,64 @@ function Block({ kind, product, ctx, mcat }: BlockProps) {
       );
     }
     case "offer":
-      return (
-        <div className="flex items-center gap-1.5 rounded-md bg-brand-orange-soft px-3 py-2 text-sm font-medium text-brand-orange">
+      return ctx.offer ? (
+        <div className="im-offer flex items-center gap-1.5">
           <BadgePercent className="size-4 shrink-0" />
-          {ctx.offer || "Offer strip — add an offer in the JSON context"}
+          {ctx.offer}
         </div>
+      ) : (
+        <MissingSlot>No offer provided (add offer to context)</MissingSlot>
       );
     case "highlights": {
+      const keySpecs = keyIsqValues(product.specs, concept.keyIsq);
       const items = [...splitHighlights(product.highlights), ...ctx.usps];
-      if (items.length === 0) return <MissingSlot>No highlights provided</MissingSlot>;
+      if (keySpecs.length === 0 && items.length === 0) {
+        return <MissingSlot>No highlights provided</MissingSlot>;
+      }
       return (
-        <ul className="space-y-1">
-          {items.map((h, i) => (
-            <li key={i} className="flex gap-1.5 text-sm">
-              <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-orange" />
-              <span>{h}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-2">
+          {keySpecs.length > 0 && (
+            <div className="flex flex-wrap gap-1.5" aria-label="Key specifications">
+              {keySpecs.map((row) => (
+                <span key={row.name} className="im-chip">
+                  <span style={{ color: "var(--im-600)" }}>{row.name}:</span>{" "}
+                  <span style={{ fontWeight: 600 }}>{row.value}</span>
+                </span>
+              ))}
+            </div>
+          )}
+          {items.length > 0 && (
+            <ul className="space-y-1">
+              {items.map((h, i) => (
+                <li key={i} className="flex gap-1.5" style={{ fontSize: 13 }}>
+                  <Sparkles
+                    className="mt-0.5 size-4 shrink-0"
+                    style={{ color: "var(--im-primary)" }}
+                  />
+                  <span>{h}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       );
     }
     case "specs": {
       const rows = buildSpecRows(product.specs, ctx.isqAttributes);
       if (rows.length === 0) {
-        return (
-          <MissingSlot>
-            Add ISQ / specs like &quot;Material: Steel&quot; in the product card
-          </MissingSlot>
-        );
+        return <MissingSlot>No ISQ / specifications provided</MissingSlot>;
       }
       return (
-        <div className="overflow-hidden rounded-md border">
-          <table className="w-full text-sm">
+        <div className="im-card" style={{ padding: 0, overflow: "hidden" }}>
+          <table className="im-specs">
             <tbody>
               {rows.map((row) => (
-                <tr key={row.name} className="border-b last:border-b-0">
-                  <td className="w-2/5 bg-muted/50 px-3 py-2 font-medium">{row.name}</td>
+                <tr key={row.name}>
+                  <td>{row.name}</td>
                   {row.missing ? (
-                    <td className="px-3 py-2 italic text-muted-foreground">Not provided</td>
+                    <td style={{ color: "var(--im-600)", fontStyle: "italic" }}>Not provided</td>
                   ) : (
-                    <td className="px-3 py-2">{row.value}</td>
+                    <td>{row.value}</td>
                   )}
                 </tr>
               ))}
@@ -189,48 +219,45 @@ function Block({ kind, product, ctx, mcat }: BlockProps) {
       );
     }
     case "description":
-      return (
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {product.description || "Product description (not set)."}
-        </p>
+      return product.description ? (
+        <div className="im-card">
+          <p style={{ fontSize: 13, lineHeight: 1.5 }}>{product.description}</p>
+        </div>
+      ) : (
+        <MissingSlot>No description provided</MissingSlot>
       );
     case "trust": {
-      const badges = [
-        ctx.verifiedSupplier && "Verified supplier",
-        ctx.gstVerified && "GST verified",
-        ctx.responseRate !== undefined && `${ctx.responseRate}% response rate`,
-      ].filter((b): b is string => Boolean(b));
-      if (badges.length === 0) {
+      const { badges, text } = trustSignals(ctx);
+      if (badges.length === 0 && !text) {
         return <MissingSlot>No trust signals provided (GST, verified, response rate)</MissingSlot>;
       }
       return (
-        <div className="flex flex-wrap gap-1.5">
-          {badges.map((label) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {badges.map((b) => (
             <span
-              key={label}
-              className="inline-flex items-center gap-1 rounded-full border bg-muted/50 px-2.5 py-1 text-xs font-medium"
+              key={b.label}
+              className={b.verified ? "im-badge im-badge-verified" : "im-badge im-badge-neutral"}
             >
-              <ShieldCheck className="size-4 text-brand-orange" />
-              {label}
+              {!b.verified && <ShieldCheck className="size-3" />}
+              {b.label}
             </span>
           ))}
+          {text && <span className="im-small">{text}</span>}
         </div>
       );
     }
     case "seller":
       return (
-        <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2.5">
-          <div>
-            <p className="text-sm font-semibold">{ctx.brand || "Seller name (not set)"}</p>
-            <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="size-4" />
+        <div className="im-card flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p style={{ fontSize: 14, fontWeight: 600 }}>{ctx.brand || "Seller name (not set)"}</p>
+            <p className="im-sub flex items-center gap-1">
+              <MapPin className="size-3.5 shrink-0" />
               {ctx.city || "City (not set)"}
               {ctx.memberSince && ` · Member since ${ctx.memberSince}`}
             </p>
           </div>
-          <span className="rounded-md border border-primary px-3 py-1.5 text-xs font-semibold text-primary">
-            View Profile
-          </span>
+          <span className="im-btn im-btn-outline im-btn-small shrink-0">View Profile</span>
         </div>
       );
   }
@@ -246,6 +273,8 @@ interface ConceptPreviewProps {
   viewport?: Viewport;
   /** Selected MCAT's importance ranking; omitted or null when there is none to check. */
   mcatRanking?: McatRankingEntry[] | null | undefined;
+  /** Receives each measured fold report, e.g. for scoring. */
+  onReport?: ((conceptId: string, report: FoldReport) => void) | undefined;
 }
 
 const PLACEMENT_TEXT = {
@@ -337,12 +366,20 @@ export function ConceptPreview({
   fold,
   viewport = DEFAULT_VIEWPORTS[device],
   mcatRanking,
+  onReport,
 }: ConceptPreviewProps) {
   const isDesktop = device === "desktop";
+  // Msite design guide: a 56px teal sticky action bar covers the bottom of the mobile
+  // screen, so the visible fold ends above it.
+  const stickyBar = !isDesktop;
+  const foldHeight = viewport.height - (stickyBar ? IM_STICKY_BAR_HEIGHT : 0);
   const galleryLeads = isDesktop && concept.firstFold[0] === "gallery";
   const firstColumn = galleryLeads ? concept.firstFold.slice(1) : concept.firstFold;
   const contentRef = useRef<HTMLDivElement>(null);
   const [report, setReport] = useState<FoldReport | null>(null);
+  // Kept in a ref so a new callback identity does not trigger re-measuring.
+  const onReportRef = useRef(onReport);
+  onReportRef.current = onReport;
 
   // Measure where each block really lands at this viewport size.
   useEffect(() => {
@@ -361,7 +398,9 @@ export function ConceptPreview({
           };
         },
       );
-      setReport(buildFoldReport(positions, viewport.height, concept.firstFold));
+      const next = buildFoldReport(positions, foldHeight, concept.firstFold);
+      setReport(next);
+      onReportRef.current?.(concept.id, next);
     };
     measure();
     if (typeof ResizeObserver === "undefined") return;
@@ -369,11 +408,11 @@ export function ConceptPreview({
     const observer = new ResizeObserver(measure);
     observer.observe(content);
     return () => observer.disconnect();
-  }, [concept, product, ctx, mcat, device, viewport.width, viewport.height]);
+  }, [concept, product, ctx, mcat, device, viewport.width, viewport.height, foldHeight]);
 
   const block = (kind: BlockKind) => (
     <div key={kind} data-block={kind}>
-      <Block kind={kind} product={product} ctx={ctx} mcat={mcat} />
+      <Block kind={kind} product={product} ctx={ctx} mcat={mcat} concept={concept} />
     </div>
   );
 
@@ -383,15 +422,38 @@ export function ConceptPreview({
         viewport={viewport}
         scrollable={fold === "full"}
         label={`${concept.name} preview, ${viewport.width} by ${viewport.height}`}
+        overlay={
+          stickyBar ? (
+            <div
+              className="im-pdp"
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: IM_STICKY_BAR_HEIGHT,
+                background: "transparent",
+              }}
+            >
+              <div className="im-sticky" aria-label="Sticky action bar">
+                <span className="im-sticky-main">{concept.cta?.primary ?? "Get Best Price"}</span>
+                {ctx.responseRate !== undefined && (
+                  <span className="im-sticky-sub">Response Rate: {ctx.responseRate}%</span>
+                )}
+              </div>
+            </div>
+          ) : null
+        }
       >
-        <div ref={contentRef} className="relative min-h-full bg-card">
-          <div className="flex h-12 items-center justify-between bg-brand-orange px-4">
-            <span className="text-sm font-bold tracking-tight text-primary-foreground">
-              IndiaMART-style mock
-            </span>
-            <span className="truncate pl-2 text-xs text-primary-foreground/80">{mcat}</span>
+        <div ref={contentRef} className="im-pdp relative min-h-full">
+          <div className="im-nav">
+            <span className="im-logo">IndiaMART</span>
+            <span className="im-nav-mcat">{mcat}</span>
           </div>
-          <div className="space-y-3 p-4">
+          <div
+            className="im-body"
+            style={stickyBar ? { paddingBottom: 12 + IM_STICKY_BAR_HEIGHT } : undefined}
+          >
             {galleryLeads ? (
               <div className="flex gap-6">
                 <div className="w-[55%] shrink-0">{block("gallery")}</div>
@@ -406,10 +468,10 @@ export function ConceptPreview({
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-destructive"
-              style={{ top: viewport.height }}
+              style={{ top: foldHeight }}
             >
               <span className="absolute right-2 -translate-y-full rounded-t bg-destructive px-1.5 py-0.5 text-xs font-medium text-white">
-                Fold {viewport.height}px
+                Fold {foldHeight}px
               </span>
             </div>
           )}
@@ -419,8 +481,10 @@ export function ConceptPreview({
         {fold === "full"
           ? "Scroll inside the frame. The dashed line marks the fold."
           : "First fold: the frame shows exactly what fits on screen before scrolling."}
+        {stickyBar &&
+          ` The teal action bar covers the bottom ${IM_STICKY_BAR_HEIGHT}px, so the fold is at ${foldHeight}px.`}
       </p>
-      {report && <FoldReportView report={report} fold={viewport.height} />}
+      {report && <FoldReportView report={report} fold={foldHeight} />}
       {report && mcatRanking && (
         <McatPlacementView
           ranking={mcatRanking}

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ConceptPreview } from "@/components/pdp/concept-preview";
 import { EMPTY_PRODUCT } from "@/lib/pdp/demo-data";
@@ -34,7 +34,7 @@ describe("Preview shows only supplied data", () => {
     expect(screen.getByText(/Seller rating not provided/)).toBeInTheDocument();
     expect(screen.getByText(/No trust signals provided/)).toBeInTheDocument();
     expect(screen.getByText("Price not provided")).toBeInTheDocument();
-    expect(screen.getByText("No image URL provided")).toBeInTheDocument();
+    expect(screen.getByText("No image provided")).toBeInTheDocument();
     expect(screen.queryByText(/Member since/)).not.toBeInTheDocument();
     expect(screen.queryByText(/\(demo/)).not.toBeInTheDocument();
   });
@@ -59,9 +59,10 @@ describe("Preview shows only supplied data", () => {
     );
     expect(screen.getByText("4.2 / 5 (31 ratings)")).toBeInTheDocument();
     expect(screen.getByText(/Member since 2017/)).toBeInTheDocument();
-    expect(screen.getByText("GST verified")).toBeInTheDocument();
-    expect(screen.getByText("82% response rate")).toBeInTheDocument();
-    expect(screen.queryByText("Verified supplier")).not.toBeInTheDocument();
+    // Labels follow the IndiaMART Msite design guide.
+    expect(screen.getByText("GST Verified")).toBeInTheDocument();
+    expect(screen.getAllByText("Response Rate: 82%").length).toBeGreaterThan(0);
+    expect(screen.queryByText("✓ Verified Supplier")).not.toBeInTheDocument();
     expect(screen.getByText("₹349 – ₹420")).toBeInTheDocument();
     expect(screen.getByText("/ piece")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Steel flask" })).toHaveAttribute(
@@ -70,9 +71,12 @@ describe("Preview shows only supplied data", () => {
     );
   });
 
-  it("shows the Get Best Price CTA once, not duplicated in the price block", () => {
+  it("shows the Get Best Price CTA once in the page, not duplicated in the price block", () => {
     renderPreview({ ...EMPTY_PRODUCT, name: "x", price: "10" }, "{}");
-    expect(screen.getAllByText("Get Best Price")).toHaveLength(1);
+    // The page itself has it once; the sticky action bar repeats it by design.
+    const page = screen.getByRole("region", { name: /preview/ });
+    expect(within(page).getAllByText("Get Best Price")).toHaveLength(1);
+    expect(screen.getByLabelText("Sticky action bar")).toHaveTextContent("Get Best Price");
   });
 });
 

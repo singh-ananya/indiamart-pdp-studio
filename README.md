@@ -1,4 +1,7 @@
-# IndiaMART PDP Studio
+# PDP Genie
+
+UI/UX benchmarking and layout concepts for IndiaMART product detail pages (formerly "IndiaMART PDP
+UI Generator"; the repository keeps the name `indiamart-pdp-studio`).
 
 Create a web app called IndiaMART PDP UI Generator. Build a clean, professional, mobile-first interface for designing IndiaMART Product Detail Pages. Include an MCAT name input, a JSON context editor, five editable product cards, Mobile/Desktop and First Fold/Full PDP selectors, and a Generate 5 Concepts button. Add tabs for Five Concepts, Benchmark Comparison, Sources, and Final Recommendation. Show five distinct PDP preview panels. Use realistic IndiaMART-inspired styling. Make the input fields and tabs functional. Clearly label sample data as demo data and never invent benchmark sources or research findings. Keep the initial version simple, responsive, and easy to maintain. Do not add authentication, a database, or paid API integrations yet.
 
@@ -22,6 +25,62 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Benchmark research
+
+**In the app:** enter the MCAT name (and ID) plus product names, add your OpenRouter key in
+**Your AI key**, then Benchmark Comparison → **Run benchmark research**. It runs 3 web searches
+(OpenRouter web plugin, Exa engine; IndiaMART excluded), reads each result from the search
+engine's text excerpt, and keeps an observation only if its quoted evidence appears word-for-word
+in that excerpt. Layout ("before scrolling") patterns are not recorded, because excerpts do not
+show layout. The result is saved to Saved research for everyone. Cost is reported after each run.
+
+**By hand:** research can also be done outside the app and imported as a JSON
+file (Benchmark Comparison tab → **Import benchmark JSON**), then shared through Supabase
+(table `pdp_benchmarks`; run `supabase/migrations/20261102120000_pdp_benchmarks.sql` once). The
+newest file per MCAT is used for that MCAT.
+
+Workflow for each MCAT:
+
+1. Search for product detail pages of that product on B2B and e-commerce sites (aim for 20).
+   Never use IndiaMART's own pages: IndiaMART is what is being improved, and the import rejects
+   any `indiamart.com` URL.
+2. Open each page. Record only what is actually visible, as observations using the pattern ids
+   in `src/lib/pdp/benchmark.ts` (or `other`), each with quoted text or a precise location as
+   evidence, plus strengths and applicability to IndiaMART.
+3. A page that cannot be opened (blocked, login wall, timeout) stays in the file as
+   `"status": "not-inspected"` with the reason. Never fill it in from memory.
+
+File format (validated on import; an invalid file changes nothing):
+
+```json
+{
+  "app": "indiamart-pdp-studio-benchmark",
+  "version": 1,
+  "mcat": { "name": "Steel Pipes", "id": "12345" },
+  "researchedAt": "2026-11-02",
+  "method": "How the pages were found and inspected",
+  "entries": [
+    {
+      "site": "Example", "type": "b2b", "url": "https://…", "status": "inspected",
+      "inspectedAt": "2026-11-02",
+      "observations": [{ "pattern": "specs-above-fold", "note": "…", "evidence": "…" }],
+      "strengths": ["…"], "applicability": "…"
+    },
+    { "site": "Other", "type": "ecommerce", "url": "https://…", "status": "not-inspected",
+      "reason": "HTTP 403 (bot protection)" }
+  ]
+}
+```
+
+## Concepts and ranking
+
+The five concepts (MCAT Priority, Benchmark Consensus, Spec & Price First, Trust Forward, Visual
+Showcase) are generated from the MCAT ranking, the benchmark file and the five products; each card
+says which data shaped it. The Final Recommendation tab ranks them from the measured previews:
+MCAT priorities above the fold (35), benchmark patterns matched (25), planned first fold fits (20)
+and real product data above the fold (20). A criterion without input is left out and the others are
+rescaled; every score shows its reasoning.
 
 ## MCAT configuration
 

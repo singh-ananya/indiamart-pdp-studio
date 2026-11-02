@@ -201,7 +201,7 @@ function throwIf(error: { message: string } | null): void {
 let client: SupabaseClient | null = null;
 
 /** Browser-only client; null during SSR or when the build has no Supabase settings. */
-function getClient(): SupabaseClient | null {
+export function getSupabaseClient(): SupabaseClient | null {
   if (typeof window === "undefined") return null;
   const url = import.meta.env["VITE_SUPABASE_URL"] as string | undefined;
   const key = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string | undefined;
@@ -211,7 +211,7 @@ function getClient(): SupabaseClient | null {
 }
 
 export function createSupabaseRemote(): McatConfigRemote {
-  const supabase = getClient();
+  const supabase = getSupabaseClient();
   const required = () => {
     if (!supabase) throw new Error("Supabase is not configured for this build");
     return supabase;

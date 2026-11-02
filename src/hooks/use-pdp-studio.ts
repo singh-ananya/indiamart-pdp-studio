@@ -6,9 +6,11 @@ import {
   serializeState,
   STORAGE_BACKUP_KEY,
   STORAGE_KEY,
+  stripDemoData,
   studioReducer,
   type ImportResult,
 } from "@/lib/pdp/studio-state";
+import type { Product } from "@/lib/pdp/types";
 
 export type SaveStatus = "loading" | "saved" | "unavailable";
 
@@ -43,7 +45,7 @@ export function usePdpStudio() {
     }
     const result = deserializeState(storage.getItem(STORAGE_KEY));
     if (result.status === "loaded") {
-      dispatch({ type: "hydrate", state: result.state });
+      dispatch({ type: "hydrate", state: stripDemoData(result.state) });
       setRevision((r) => r + 1);
     } else if (result.status === "unreadable") {
       // Keep a copy before the next save overwrites it.
@@ -53,7 +55,7 @@ export function usePdpStudio() {
         /* ignore quota errors; the warning below still shows */
       }
       setLoadWarning(
-        `Saved studio data could not be read, so demo data was loaded. A copy was kept under "${STORAGE_BACKUP_KEY}".`,
+        `Saved studio data could not be read, so an empty brief was started. A copy was kept under "${STORAGE_BACKUP_KEY}".`,
       );
     }
     hydrated.current = true;
@@ -90,5 +92,20 @@ export function usePdpStudio() {
     setRevision((r) => r + 1);
   }, []);
 
-  return { state, dispatch, revision, saveStatus, loadWarning, importText, reset };
+  /** Replace a product's fields wholesale (e.g. fetched data) and refresh editors' drafts. */
+  const replaceProduct = useCallback((id: string, patch: Partial<Product>) => {
+    dispatch({ type: "updateProduct", id, patch });
+    setRevision((r) => r + 1);
+  }, []);
+
+  return {
+    state,
+    dispatch,
+    revision,
+    saveStatus,
+    loadWarning,
+    importText,
+    reset,
+    replaceProduct,
+  };
 }

@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { CONCEPTS } from "./concepts";
+import { ALL_BLOCKS, CONCEPTS } from "./concepts";
 import { DEFAULT_CONTEXT_JSON, DEFAULT_MCAT, DEMO_PRODUCTS, EMPTY_PRODUCT } from "./demo-data";
 import { formatIssues, ProductInputSchema, toProduct, validatePdpContext } from "./schema";
-import type { DeviceMode, FoldMode, Product } from "./types";
+import type { BlockKind, Concept, DeviceMode, FoldMode, Product } from "./types";
 
 export const PRODUCT_SLOTS = 5;
 export const STORAGE_KEY = "indiamart-pdp-studio:v1";
@@ -37,6 +37,21 @@ export interface StudioState {
   snapshot: StudioSnapshot | null;
   preferredId: string | null;
   benchmarkNotes: string;
+  /** The AI's five designs for the current snapshot; null when not generated. */
+  aiDesign: AiDesign | null;
+}
+
+export interface AiDesign {
+  concepts: Concept[];
+  model: string;
+  /** ISO timestamp. */
+  createdAt: string;
+  /** What the app removed or replaced in the AI's answer. */
+  corrections: string[];
+  /** US dollars reported by the provider, when it reported it. */
+  cost: number | null;
+  /** How many inspected benchmark pages the design brief contained. */
+  benchmarkPages: number;
 }
 
 export const DEFAULT_VIEWPORTS: Record<DeviceMode, Viewport> = {
@@ -44,12 +59,23 @@ export const DEFAULT_VIEWPORTS: Record<DeviceMode, Viewport> = {
   desktop: { width: 1366, height: 768 },
 };
 
+export const EMPTY_CONTEXT_JSON = "{}";
+
+function emptyProducts(): Product[] {
+  return Array.from({ length: PRODUCT_SLOTS }, (_, i) => ({
+    ...EMPTY_PRODUCT,
+    id: `p${i + 1}`,
+    imageUrls: [],
+  }));
+}
+
+/** An empty brief: the studio shows only real data the user enters or fetches. */
 export function createDefaultState(): StudioState {
   return {
-    mcat: DEFAULT_MCAT,
+    mcat: "",
     mcatId: "",
-    contextJson: DEFAULT_CONTEXT_JSON,
-    products: DEMO_PRODUCTS.map((p) => ({ ...p, imageUrls: [...p.imageUrls] })),
+    contextJson: EMPTY_CONTEXT_JSON,
+    products: emptyProducts(),
     device: "mobile",
     fold: "first",
     viewports: {
@@ -60,6 +86,7 @@ export function createDefaultState(): StudioState {
     snapshot: null,
     preferredId: null,
     benchmarkNotes: "",
+    aiDesign: null,
   };
 }
 
@@ -88,11 +115,59 @@ const ProductsSchema = z
 // Browser storage (versioned; newer fields have defaults so old saves still load)
 // ---------------------------------------------------------------------------
 
-/** Version 2 added mcatId; version 1 saves load with it empty. */
-export const STORAGE_VERSION = 2;
+/** Version 2 added mcatId; version 3 added aiDesign. Older saves load with defaults. */
+export const STORAGE_VERSION = 3;
+
+const BlockKindSchema = z.enum(ALL_BLOCKS as [BlockKind, ...BlockKind[]]);
+const StoredConceptSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  tagline: z.string(),
+  bestFor: z.string(),
+  firstFold: z.array(BlockKindSchema).min(1),
+  below: z.array(BlockKindSchema),
+  rationale: z.array(z.string()).optional(),
+  source: z.enum(["ai", "fixed"]).optional(),
+  keyIsq: z.array(z.string()).optional(),
+  cta: z.object({ primary: z.string(), secondary: z.string() }).optional(),
+  benchmarkRefs: z
+    .array(z.object({ site: z.string(), url: z.string().regex(/^https?:\/\//i) }))
+    .optional(),
+});
+
+/** Rebuild a concept without undefined optional fields. */
+function toConcept(c: z.output<typeof StoredConceptSchema>): Concept {
+  return {
+    id: c.id,
+    name: c.name,
+    tagline: c.tagline,
+    bestFor: c.bestFor,
+    firstFold: c.firstFold,
+    below: c.below,
+    ...(c.rationale ? { rationale: c.rationale } : {}),
+    ...(c.source ? { source: c.source } : {}),
+    ...(c.keyIsq ? { keyIsq: c.keyIsq } : {}),
+    ...(c.cta ? { cta: c.cta } : {}),
+    ...(c.benchmarkRefs ? { benchmarkRefs: c.benchmarkRefs } : {}),
+  };
+}
+
+const StoredAiDesignSchema = z.object({
+  concepts: z.array(StoredConceptSchema).length(5),
+  model: z.string(),
+  createdAt: z.string(),
+  corrections: z.array(z.string()),
+  cost: z.number().nullable(),
+  benchmarkPages: z.number().int().min(0),
+});
+
+/** Ids the preferred concept may have: fixed strategies or the AI's five. */
+const isConceptId = (id: string) => conceptIds.includes(id) || /^ai-[1-5]$/.test(id);
 
 const StoredStateSchema = z.object({
-  version: z.union([z.literal(1), z.literal(STORAGE_VERSION)]),
+  version: z.union([z.literal(1), z.literal(2), z.literal(STORAGE_VERSION)]),
+  // An unreadable AI design is dropped rather than making the whole save unreadable.
+  aiDesign: StoredAiDesignSchema.nullable().catch(null).default(null),
   mcat: z.string(),
   mcatId: z.string().default(""),
   contextJson: z.string(),
@@ -159,8 +234,9 @@ export function deserializeState(raw: string | null): LoadResult {
             products: normalizeProducts(d.snapshot.products),
           }
         : null,
-      preferredId: d.preferredId && conceptIds.includes(d.preferredId) ? d.preferredId : null,
+      preferredId: d.preferredId && isConceptId(d.preferredId) ? d.preferredId : null,
       benchmarkNotes: d.benchmarkNotes,
+      aiDesign: d.aiDesign ? { ...d.aiDesign, concepts: d.aiDesign.concepts.map(toConcept) } : null,
     },
   };
 }
@@ -291,6 +367,7 @@ export type StudioAction =
   | { type: "generate" }
   | { type: "setPreferred"; id: string | null }
   | { type: "setBenchmarkNotes"; notes: string }
+  | { type: "setAiDesign"; design: AiDesign | null }
   | { type: "applyImport"; data: ImportedData };
 
 export function studioReducer(state: StudioState, action: StudioAction): StudioState {
@@ -327,20 +404,25 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
       return {
         ...state,
         snapshot: {
-          mcat: state.mcat.trim() || DEFAULT_MCAT,
+          mcat: state.mcat.trim(),
           mcatId: state.mcatId.trim(),
           contextJson: state.contextJson,
           products: state.products.map((p) => ({ ...p, imageUrls: [...p.imageUrls] })),
         },
         preferredId: null,
+        // New inputs: an earlier AI design no longer applies.
+        aiDesign: null,
       };
     case "setPreferred":
       return { ...state, preferredId: action.id };
     case "setBenchmarkNotes":
       return { ...state, benchmarkNotes: action.notes };
+    case "setAiDesign":
+      return { ...state, aiDesign: action.design, preferredId: null };
     case "applyImport":
       return {
         ...state,
+        aiDesign: null,
         mcat: action.data.mcat,
         mcatId: action.data.mcatId,
         contextJson: action.data.contextJson,
@@ -349,11 +431,66 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
         preferredId: action.data.preferredId,
         previewProductIndex: 0,
         snapshot: {
-          mcat: action.data.mcat.trim() || DEFAULT_MCAT,
+          mcat: action.data.mcat.trim(),
           mcatId: action.data.mcatId,
           contextJson: action.data.contextJson,
           products: action.data.products,
         },
       };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Removing the old demo data
+// ---------------------------------------------------------------------------
+
+const DEMO_FIELDS = [
+  "name",
+  "price",
+  "priceMax",
+  "unit",
+  "moq",
+  "highlights",
+  "specs",
+  "description",
+] as const;
+
+function stripDemoProduct(product: Product, index: number): Product {
+  const demo = DEMO_PRODUCTS[index];
+  if (!demo) return product;
+  const cleaned = { ...product };
+  for (const field of DEMO_FIELDS) {
+    if (cleaned[field] === demo[field]) cleaned[field] = "";
+  }
+  return cleaned;
+}
+
+/**
+ * Earlier versions started every brief with water-bottle demo data. Remove any value
+ * that is still exactly the demo value (in the same slot); anything the user typed or
+ * changed is kept.
+ */
+export function stripDemoData(state: StudioState): StudioState {
+  const mcat = state.mcat === DEFAULT_MCAT ? "" : state.mcat;
+  const contextJson =
+    state.contextJson.trim() === DEFAULT_CONTEXT_JSON.trim()
+      ? EMPTY_CONTEXT_JSON
+      : state.contextJson;
+  return {
+    ...state,
+    mcat,
+    contextJson,
+    products: state.products.map(stripDemoProduct),
+    snapshot: state.snapshot
+      ? {
+          ...state.snapshot,
+          mcat: state.snapshot.mcat === DEFAULT_MCAT ? "" : state.snapshot.mcat,
+          contextJson:
+            state.snapshot.contextJson.trim() === DEFAULT_CONTEXT_JSON.trim()
+              ? EMPTY_CONTEXT_JSON
+              : state.snapshot.contextJson,
+          products: state.snapshot.products.map(stripDemoProduct),
+        }
+      : null,
+  };
 }

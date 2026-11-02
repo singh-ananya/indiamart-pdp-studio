@@ -116,15 +116,16 @@ export function StudioFileControls({
           <AlertDialogTrigger asChild>
             <Button variant="ghost" size="sm">
               <RotateCcw className="size-3.5" />
-              Reset to demo
+              Clear brief
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Replace your brief with demo data?</AlertDialogTitle>
+              <AlertDialogTitle>Clear your brief?</AlertDialogTitle>
               <AlertDialogDescription>
-                Your MCAT, context, product cards, notes and preferred concept will be replaced.
-                Export first if you want to keep them.
+                Your MCAT, context, product cards, notes and preferred concept will be emptied.
+                Export first if you want to keep them. Saved research and the MCAT configuration are
+                not affected.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -135,7 +136,7 @@ export function StudioFileControls({
                   setMessage(null);
                 }}
               >
-                Reset to demo
+                Clear brief
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -4,17 +4,17 @@ import { PdpStudio } from "@/components/pdp/studio";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "IndiaMART PDP UI Generator" },
+      { title: "PDP Genie — IndiaMART PDP UI/UX benchmarking" },
       {
         name: "description",
         content:
-          "Design and preview five IndiaMART-style product detail page concepts from your MCAT, product and JSON inputs. Demo data only.",
+          "Benchmark and design IndiaMART product detail pages: five data-driven layout concepts from your MCAT, products and benchmark research, ranked with a transparent score.",
       },
-      { property: "og:title", content: "IndiaMART PDP UI Generator" },
+      { property: "og:title", content: "PDP Genie — IndiaMART PDP UI/UX benchmarking" },
       {
         property: "og:description",
         content:
-          "Generate five distinct PDP layout concepts with mobile, desktop and first-fold previews.",
+          "Five data-driven PDP concepts with mobile, desktop and first-fold previews, benchmark research and a transparent ranking.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

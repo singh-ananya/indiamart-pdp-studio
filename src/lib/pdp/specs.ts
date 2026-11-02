@@ -44,6 +44,21 @@ export function buildSpecRows(specs: string, isqAttributes: string[]): SpecRow[]
   return [...isqRows, ...otherRows];
 }
 
+/**
+ * The product's own values for the given ISQ names, in that order. Names the product
+ * has no value for are skipped — never filled in.
+ */
+export function keyIsqValues(
+  specs: string,
+  names: string[] | undefined,
+): { name: string; value: string }[] {
+  if (!names || names.length === 0) return [];
+  const byName = new Map(parseSpecLines(specs).map((row) => [row.name.toLowerCase(), row]));
+  return names
+    .map((name) => byName.get(name.trim().toLowerCase()))
+    .filter((row): row is { name: string; value: string } => row !== undefined);
+}
+
 export function splitHighlights(text: string): string[] {
   return text
     .split(/\n|,/)

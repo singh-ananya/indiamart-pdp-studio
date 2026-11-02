@@ -81,15 +81,44 @@ describe("device frame", () => {
     renderMode("first");
     const frame = screen.getByRole("region", { name: /390 by 844/ });
     expect(frame.className).toContain("overflow-hidden");
-    expect(screen.queryByText("Fold 844px")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Fold \d+px$/)).not.toBeInTheDocument();
   });
 
-  it("full PDP scrolls inside the frame and marks the fold at the viewport height", () => {
+  it("full PDP scrolls inside the frame and marks the fold above the sticky action bar", () => {
     renderMode("full");
     const frame = screen.getByRole("region", { name: /390 by 844/ });
     expect(frame.className).toContain("overflow-y-auto");
-    const marker = screen.getByText("Fold 844px").parentElement!;
-    expect(marker).toHaveStyle({ top: "844px" });
+    // 844px screen minus the 56px teal sticky bar (IndiaMART Msite design guide).
+    const marker = screen.getByText("Fold 788px").parentElement!;
+    expect(marker).toHaveStyle({ top: "788px" });
+  });
+
+  it("follows the IndiaMART Msite design: teal sticky bar with the primary CTA, white top bar", () => {
+    renderMode("first");
+    const bar = screen.getByLabelText("Sticky action bar");
+    expect(bar).toHaveClass("im-sticky");
+    expect(bar).toHaveTextContent("Get Best Price");
+    expect(screen.getByText("IndiaMART")).toHaveClass("im-logo");
+    expect(screen.getByRole("heading", { level: 4 })).toHaveClass("im-title");
+    expect(
+      screen.getByText(/The teal action bar covers the bottom 56px, so the fold is at 788px/),
+    ).toBeInTheDocument();
+  });
+
+  it("has no sticky bar on desktop, where the fold is the full viewport height", () => {
+    render(
+      <ConceptPreview
+        concept={CONCEPTS[0]!}
+        product={DEMO_PRODUCTS[0]!}
+        ctx={parsePdpContext("{}")}
+        mcat="Test"
+        device="desktop"
+        fold="full"
+        viewport={{ width: 1366, height: 768 }}
+      />,
+    );
+    expect(screen.queryByLabelText("Sticky action bar")).not.toBeInTheDocument();
+    expect(screen.getByText("Fold 768px")).toBeInTheDocument();
   });
 
   it("renders every block of the concept in both modes so clipping, not filtering, decides visibility", () => {

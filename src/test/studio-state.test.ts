@@ -25,7 +25,7 @@ describe("storage round trip", () => {
     state = studioReducer(state, { type: "setBenchmarkNotes", notes: "note" });
     state = studioReducer(state, { type: "setFold", fold: "full" });
     state = studioReducer(state, { type: "generate" });
-    state = studioReducer(state, { type: "setPreferred", id: "spec-first" });
+    state = studioReducer(state, { type: "setPreferred", id: "spec-price-first" });
 
     const loaded = deserializeState(serializeState(state));
     expect(loaded).toEqual({ status: "loaded", state });
@@ -45,12 +45,12 @@ describe("storage round trip", () => {
     expect(loaded.state.mcat).toBe(state.mcat);
   });
 
-  it("saves as version 2 and keeps the MCAT ID in the brief and snapshot", () => {
+  it("saves as version 3 and keeps the MCAT ID in the brief and snapshot", () => {
     let state = studioReducer(createDefaultState(), { type: "setMcatId", mcatId: " 42 " });
     state = studioReducer(state, { type: "generate" });
     expect(state.snapshot?.mcatId).toBe("42");
     const raw = serializeState(state);
-    expect(JSON.parse(raw)).toMatchObject({ version: 2, mcatId: " 42 " });
+    expect(JSON.parse(raw)).toMatchObject({ version: 3, mcatId: " 42 ", aiDesign: null });
     expect(deserializeState(raw)).toEqual({ status: "loaded", state });
   });
 

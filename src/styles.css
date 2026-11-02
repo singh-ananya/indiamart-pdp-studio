@@ -104,3 +104,122 @@
     color: var(--color-foreground);
   }
 }
+
+/*
+ * IndiaMART Msite design system (im-lite design_guides.md), scoped to the PDP previews.
+ * Always light: these previews mock IndiaMART's own mobile pages.
+ */
+.im-pdp {
+  --im-primary: #1d8480;
+  --im-primary-light: #c2e8e6;
+  --im-secondary: #2e3192;
+  --im-900: #161921;
+  --im-600: #6e7279;
+  --im-300: #d2d4d9;
+  --im-bg: #f5f6f8;
+  --im-card: #ffffff;
+  --im-success: #1a9e56;
+  --im-trending: #cb6b0a;
+  --im-depth-1: 0 1px 3px 0 rgba(30, 42, 58, 0.06);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--im-900);
+  background: var(--im-bg);
+}
+.im-pdp .im-nav {
+  height: 56px;
+  background: var(--im-card);
+  box-shadow: var(--im-depth-1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 16px;
+}
+.im-pdp .im-logo { font-size: 16px; font-weight: 700; color: var(--im-secondary); }
+.im-pdp .im-nav-mcat {
+  font-size: 12px;
+  color: var(--im-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.im-pdp .im-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+.im-pdp .im-card {
+  background: var(--im-card);
+  border: 1px solid var(--im-300);
+  border-radius: 12px;
+  padding: 12px;
+}
+.im-pdp .im-title { font-size: 18px; font-weight: 700; line-height: 1.3; color: var(--im-900); }
+.im-pdp .im-sub { font-size: 13px; color: var(--im-600); }
+.im-pdp .im-price { font-size: 16px; font-weight: 700; color: var(--im-900); }
+.im-pdp .im-caption { font-size: 12px; color: var(--im-600); }
+.im-pdp .im-small { font-size: 11px; color: var(--im-600); }
+.im-pdp .im-btn {
+  height: 48px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  text-align: center;
+}
+.im-pdp .im-btn-primary { background: var(--im-primary); color: #ffffff; }
+.im-pdp .im-btn-outline { border: 1.5px solid var(--im-primary); color: var(--im-primary); }
+.im-pdp .im-btn-small { height: 40px; font-size: 13px; padding: 0 16px; }
+.im-pdp .im-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+.im-pdp .im-badge-verified { background: var(--im-success); color: #ffffff; }
+.im-pdp .im-badge-neutral { background: var(--im-bg); color: var(--im-900); border: 1px solid var(--im-300); }
+.im-pdp .im-chip {
+  border: 1px solid var(--im-300);
+  border-radius: 4px;
+  background: var(--im-card);
+  padding: 4px 8px;
+  font-size: 13px;
+}
+.im-pdp .im-offer {
+  background: var(--im-primary-light);
+  color: var(--im-primary);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.im-pdp .im-missing {
+  border: 1px dashed var(--im-300);
+  border-radius: 8px;
+  background: var(--im-card);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--im-600);
+}
+.im-pdp .im-specs { width: 100%; font-size: 13px; border-collapse: collapse; }
+.im-pdp .im-specs td { padding: 8px 12px; border-bottom: 1px solid var(--im-300); vertical-align: top; }
+.im-pdp .im-specs tr:last-child td { border-bottom: 0; }
+.im-pdp .im-specs td:first-child { color: var(--im-600); width: 42%; }
+.im-pdp .im-sticky {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 56px;
+  background: var(--im-primary);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.im-pdp .im-sticky-main { font-size: 16px; font-weight: 600; }
+.im-pdp .im-sticky-sub { font-size: 11px; }
