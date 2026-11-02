@@ -57,11 +57,13 @@ every concept reports where those dimensions land against its measured fold.
 
 | Variable | Local development | Production (Lovable build) | Secret? |
 |---|---|---|---|
-| `VITE_SUPABASE_URL` | `.env.local` | Build environment | No — shipped to the browser |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | `.env.local` | Build environment | No — public by design |
+| `VITE_SUPABASE_URL` | Committed `.env` | Committed `.env` | No — shipped to the browser |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Committed `.env` | Committed `.env` | No — public by design |
 | `SUPABASE_SECRET_KEY` | **Not used. Do not set it.** | **Not used. Do not set it.** | Yes |
 | `SUPABASE_JWKS_URL` | Not used | Not used | No |
 
-Copy `.env.example` to `.env.local` and fill in the publishable key. `.env` and `.env.*` files are
-git-ignored (except `.env.example`). The app has no server-side code that would need the secret
-key; never prefix a secret with `VITE_`, because Vite ships every `VITE_` variable to browsers.
+The two public values are committed in `.env`, so Lovable's preview and live builds get them from
+the repo. `src/test/env-files.test.ts` fails if `.env` ever holds anything else. To point a local
+copy at a different project, put overrides in `.env.local` (git-ignored, along with every other
+`.env.*` file). The app has no server-side code that would need the secret key; never prefix a
+secret with `VITE_`, because Vite ships every `VITE_` variable to browsers.

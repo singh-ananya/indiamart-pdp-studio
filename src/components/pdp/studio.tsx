@@ -167,7 +167,9 @@ export function PdpStudio({ mcatStorage }: PdpStudioProps = {}) {
         <div className="mx-auto flex max-w-6xl flex-col gap-1.5 px-4 py-4 sm:px-6">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">All sample content is demo data</Badge>
-            <Badge variant="outline">Runs locally · no sign-in, no database</Badge>
+            <Badge variant="outline">
+              MCAT config shared via Supabase · @indiamart.com sign-in
+            </Badge>
           </div>
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
             IndiaMART PDP UI Generator
