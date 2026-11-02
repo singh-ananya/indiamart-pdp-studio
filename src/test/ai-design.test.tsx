@@ -1,7 +1,13 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PdpStudio } from "@/components/pdp/studio";
-import { availableIsqNames, buildDesignBrief, validateDesign } from "@/lib/ai/design";
+import {
+  availableIsqNames,
+  buildDesignBrief,
+  designConcepts,
+  parseDesignAnswer,
+  validateDesign,
+} from "@/lib/ai/design";
 import { parseBenchmarkText } from "@/lib/pdp/benchmark";
 import { ALL_BLOCKS } from "@/lib/pdp/concepts";
 import { EMPTY_PRODUCT } from "@/lib/pdp/demo-data";
@@ -178,6 +184,65 @@ describe("AI design validation", () => {
   });
 });
 
+describe("reading the AI's answer", () => {
+  const five = [1, 2, 3, 4, 5].map((n) => aiConcept(n));
+
+  it("accepts the common shapes models return", () => {
+    for (const text of [
+      JSON.stringify({ concepts: five }),
+      JSON.stringify(five),
+      JSON.stringify({ designs: five }),
+      "Here are the designs:\n```json\n" + JSON.stringify({ layouts: five }) + "\n```",
+    ]) {
+      const answer = parseDesignAnswer(text);
+      expect(Array.isArray(answer?.["concepts"])).toBe(true);
+      expect((answer!["concepts"] as unknown[]).length).toBe(5);
+    }
+    expect(parseDesignAnswer("")).toBeNull();
+    expect(parseDesignAnswer('{"concepts": [{"name": "cut off')).toBeNull();
+  });
+
+  const settings = { baseUrl: "https://openrouter.ai/api/v1", model: "m", apiKey: "k" };
+  const reply = (content: string, finish = "stop") =>
+    new Response(
+      JSON.stringify({
+        choices: [{ message: { content }, finish_reason: finish }],
+        usage: { cost: 0.001 },
+      }),
+      { headers: { "Content-Type": "application/json" } },
+    );
+
+  it("retries once when the first answer is empty, and keeps the reason", async () => {
+    const answers = [reply(""), reply(JSON.stringify(five))];
+    const result = await designConcepts({
+      provider: "openrouter",
+      settings,
+      inputs,
+      mcat: { name: "TV", id: "" },
+      fetchImpl: (async () => answers.shift()!) as typeof fetch,
+    });
+    expect(result.concepts.every((c) => c.source === "ai")).toBe(true);
+    expect(result.corrections[0]).toMatch(/First answer: the model returned no text/);
+    expect(result.cost).toBeCloseTo(0.002, 6);
+  });
+
+  it("fails with the exact reason instead of quietly showing fixed layouts", async () => {
+    const answers = [
+      reply('{"concepts": [{"name": "x"', "length"),
+      reply('{"concepts": [{"name"', "length"),
+    ];
+    await expect(
+      designConcepts({
+        provider: "openrouter",
+        settings,
+        inputs,
+        mcat: { name: "TV", id: "" },
+        fetchImpl: (async () => answers.shift()!) as typeof fetch,
+      }),
+    ).rejects.toThrow(/the answer was cut off before it was complete, twice\. Try another model/);
+  });
+});
+
 describe("Generate with AI", () => {
   beforeEach(() => window.localStorage.clear());
 
@@ -201,22 +266,36 @@ describe("Generate with AI", () => {
     const ai = fakeAi({
       concepts: [1, 2, 3, 4, 5].map((n) => aiConcept(n, { benchmarkRefs: [] })),
     });
-    render(<PdpStudio aiFetch={ai.fetchImpl} />);
+    const { id: _id, ...tvFields } = TV;
+    const productFetch = async (displayId: string) => ({
+      ok: true as const,
+      data: {
+        displayId,
+        mcatId: "650708",
+        mcatName: "32 inch LED TV",
+        seller: { name: "", city: "" },
+        product: tvFields,
+      },
+    });
+    render(<PdpStudio aiFetch={ai.fetchImpl} productFetch={productFetch} />);
     fireEvent.change(screen.getByLabelText("OpenRouter key"), {
       target: { value: "sk-or-v1-test" },
     });
     fireEvent.change(screen.getByLabelText("MCAT name"), { target: { value: "32 inch LED TV" } });
-    fireEvent.change(screen.getByLabelText("Brief product 1 name"), {
-      target: { value: "32 Inch LED TV" },
+    // Real product data comes from an IndiaMART listing.
+    fireEvent.change(screen.getByLabelText("Product 1 IndiaMART URL or ID"), {
+      target: { value: "2851707213873" },
     });
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "Product Cards" }), {
-      button: 0,
-      ctrlKey: false,
+    await act(async () => {
+      fireEvent.click(
+        within(screen.getByLabelText("Brief product 1")).getByRole("button", {
+          name: "Use this listing",
+        }),
+      );
     });
-    fireEvent.change(screen.getByLabelText("Product 1 specs"), { target: { value: TV.specs } });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Generate 5 Concepts" }));
+      fireEvent.click(screen.getByRole("button", { name: "Generate 5 AI Designs" }));
     });
 
     expect(ai.bodies).toHaveLength(1);
@@ -250,7 +329,7 @@ describe("Generate with AI", () => {
       target: { value: "sk-or-v1-test" },
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Generate 5 Concepts" }));
+      fireEvent.click(screen.getByRole("button", { name: "Generate 5 AI Designs" }));
     });
     expect(await screen.findByLabelText("Design source")).toHaveTextContent(
       "The AI design failed (HTTP 402 — Insufficient credits), so the fixed strategies are shown.",
@@ -260,7 +339,7 @@ describe("Generate with AI", () => {
 
   it("uses fixed strategies without an AI key", () => {
     render(<PdpStudio />);
-    fireEvent.click(screen.getByRole("button", { name: "Generate 5 Concepts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate 5 AI Designs" }));
     expect(screen.getByLabelText("Design source")).toHaveTextContent(
       "Fixed layout strategies. Add your AI key",
     );

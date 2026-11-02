@@ -315,12 +315,8 @@ describe("MCAT configuration in the five concepts", () => {
 
     fireEvent.change(screen.getByLabelText("MCAT ID"), { target: { value: "77" } });
     expect(screen.getByText(/^Found: image Low/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Generate 5 Concepts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate 5 AI Designs" }));
 
-    // Fixture: image Low, company High.
-    expect(screen.getByLabelText("MCAT 77 configuration")).toHaveTextContent(
-      "im-lite serves Template4",
-    );
     const checks = await screen.findAllByLabelText("MCAT priority check");
     expect(checks).toHaveLength(CONCEPTS.length);
     for (const check of checks) {
@@ -329,6 +325,15 @@ describe("MCAT configuration in the five concepts", () => {
         within(check).getByText(/^5\. unit \(Low\).*Show: No in the file/),
       ).toBeInTheDocument();
     }
+
+    // The ranking itself is in its own tab. Fixture: image Low, company High.
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "MCAT Ranking" }), {
+      button: 0,
+      ctrlKey: false,
+    });
+    expect(screen.getByLabelText("MCAT 77 configuration")).toHaveTextContent(
+      "im-lite serves Template4",
+    );
   });
 
   it("says so when the MCAT ID is not in the configuration, and shows no checks", async () => {
@@ -345,12 +350,16 @@ describe("MCAT configuration in the five concepts", () => {
 
     fireEvent.change(screen.getByLabelText("MCAT ID"), { target: { value: "999" } });
     expect(screen.getByText("Not in the active configuration.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Generate 5 Concepts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate 5 AI Designs" }));
+    expect(screen.queryByLabelText("MCAT priority check")).not.toBeInTheDocument();
 
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "MCAT Ranking" }), {
+      button: 0,
+      ctrlKey: false,
+    });
     expect(screen.getByRole("alert")).toHaveTextContent(
       "MCAT 999 is not in the active configuration",
     );
-    expect(screen.queryByLabelText("MCAT priority check")).not.toBeInTheDocument();
   });
 
   it("restores the MCAT ID with the rest of the brief", async () => {

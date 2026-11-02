@@ -149,7 +149,7 @@ describe("benchmark research in the app", () => {
     await importBenchmark(benchmarkJson());
     await screen.findByText("Imported steel-pipes.json for Steel Pipes");
     openTab("Five Concepts");
-    fireEvent.click(screen.getByRole("button", { name: "Generate 5 Concepts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate 5 AI Designs" }));
 
     expect(
       within(screen.getByLabelText("Benchmark Consensus is built from")).getByText(

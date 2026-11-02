@@ -18,7 +18,7 @@ function fillNamesAndGenerate() {
       target: { value: name },
     }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Generate 5 Concepts" }));
+  fireEvent.click(screen.getByRole("button", { name: "Generate 5 AI Designs" }));
 }
 
 describe("Fair comparison", () => {

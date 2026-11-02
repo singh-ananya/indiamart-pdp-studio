@@ -645,7 +645,7 @@ export function RecommendationPanel({
           <div className="space-y-1 text-sm">
             <p className="font-medium">No ranking yet.</p>
             <p className="text-muted-foreground">
-              Press &quot;Generate 5 Concepts&quot;. Scores are calculated from the measured
+              Press &quot;Generate 5 AI Designs&quot;. Scores are calculated from the measured
               previews in the Five Concepts tab.
             </p>
           </div>

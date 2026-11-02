@@ -6,9 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { ConceptPreview } from "@/components/pdp/concept-preview";
-import { ImageUrlField } from "@/components/pdp/image-url-field";
+import { BenchmarkedSites } from "@/components/pdp/benchmarked-sites";
+import { SavedResultsButton } from "@/components/pdp/saved-results-button";
+import { useSavedResults } from "@/hooks/use-saved-results";
+import type { SavedResult, SavedResultsRemote } from "@/lib/pdp/saved-results-store";
 import { McatConfigPanel, McatRankingSummary } from "@/components/pdp/mcat-config-panel";
 import {
   BenchmarkPanel,
@@ -79,87 +81,13 @@ function Segmented<T extends string>({
   );
 }
 
-interface ProductCardEditorProps {
-  product: Product;
-  index: number;
-  onChange: (patch: Partial<Product>) => void;
-}
-
-function ProductCardEditor({ product, index, onChange }: ProductCardEditorProps) {
-  const n = index + 1;
-  return (
-    <Card className="bg-muted/30">
-      <CardContent className="space-y-2.5 pt-5">
-        <p className="text-xs font-semibold text-muted-foreground">Product {n}</p>
-        <Input
-          value={product.name}
-          onChange={(e) => onChange({ name: e.target.value })}
-          placeholder="Product name"
-          aria-label={`Product ${n} name`}
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            value={product.price}
-            onChange={(e) => onChange({ price: e.target.value })}
-            placeholder="Price ₹"
-            aria-label={`Product ${n} price`}
-          />
-          <Input
-            value={product.priceMax}
-            onChange={(e) => onChange({ priceMax: e.target.value })}
-            placeholder="Max price ₹ (optional)"
-            aria-label={`Product ${n} maximum price`}
-          />
-          <Input
-            value={product.unit}
-            onChange={(e) => onChange({ unit: e.target.value })}
-            placeholder="Unit, e.g. piece"
-            aria-label={`Product ${n} unit`}
-          />
-          <Input
-            value={product.moq}
-            onChange={(e) => onChange({ moq: e.target.value })}
-            placeholder="MOQ"
-            aria-label={`Product ${n} MOQ`}
-          />
-        </div>
-        <Textarea
-          rows={2}
-          value={product.highlights}
-          onChange={(e) => onChange({ highlights: e.target.value })}
-          placeholder="Highlights, comma separated"
-          aria-label={`Product ${n} highlights`}
-        />
-        <Textarea
-          rows={3}
-          className="font-mono text-xs"
-          value={product.specs}
-          onChange={(e) => onChange({ specs: e.target.value })}
-          placeholder={"ISQ / specs, one per line:\nMaterial: Steel"}
-          aria-label={`Product ${n} specs`}
-        />
-        <Textarea
-          rows={2}
-          value={product.description}
-          onChange={(e) => onChange({ description: e.target.value })}
-          placeholder="Short description"
-          aria-label={`Product ${n} description`}
-        />
-        <ImageUrlField
-          urls={product.imageUrls}
-          onChange={(imageUrls) => onChange({ imageUrls })}
-          label={`Product ${n} image URLs`}
-        />
-      </CardContent>
-    </Card>
-  );
-}
-
 interface PdpStudioProps {
   /** MCAT configuration storage; defaults to Supabase plus this browser's IndexedDB cache. */
   mcatStorage?: { remote?: McatConfigRemote; cache?: McatConfigCache };
   /** Benchmark research storage; defaults to Supabase. */
   benchmarkRemote?: BenchmarkRemote;
+  /** Shared saved results; defaults to Supabase. */
+  savedResultsRemote?: SavedResultsRemote;
   /** Network access for the AI provider; injected in tests. */
   aiFetch?: typeof fetch;
   /** Reads one IndiaMART product; defaults to the app's server function. */
@@ -181,6 +109,7 @@ const defaultProductSearch = async (query: string): Promise<SearchResult> => {
 export function PdpStudio({
   mcatStorage,
   benchmarkRemote,
+  savedResultsRemote,
   aiFetch,
   productFetch = defaultProductFetch,
   productSearch = defaultProductSearch,
@@ -212,7 +141,7 @@ export function PdpStudio({
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error();
       current = parsed as Record<string, unknown>;
     } catch {
-      return "The JSON context is not valid JSON, so it was not changed. Fix it first.";
+      return "The saved seller details could not be read, so they were not changed.";
     }
     const next: Record<string, unknown> = { ...current };
     if (seller.name) next["brand"] = seller.name;
@@ -222,7 +151,7 @@ export function PdpStudio({
     if (seller.gstVerified !== undefined) next["gstVerified"] = seller.gstVerified;
     if (seller.memberSince !== undefined) next["memberSince"] = seller.memberSince;
     dispatch({ type: "setContextJson", contextJson: JSON.stringify(next, null, 2) });
-    return `Seller details added to the JSON Context${seller.name ? ` (${seller.name})` : ""}.`;
+    return `Seller details added${seller.name ? ` (${seller.name})` : ""} — shown in the seller card, ratings and trust badges.`;
   };
   const snapshotCtx = useMemo(
     () => (snapshot ? parsePdpContext(snapshot.contextJson) : null),
@@ -242,6 +171,9 @@ export function PdpStudio({
     isAllowedEmail(mcatConfig.email) &&
     mcatConfig.status !== "not-configured";
   const benchmarks = useBenchmarks(signedIn, benchmarkRemote);
+  const savedResults = useSavedResults(signedIn, savedResultsRemote);
+  /** What happened to the current result in Saved results (saved, opened, or why not). */
+  const [savedNote, setSavedNote] = useState<string | null>(null);
 
   const productNames = products.map((p) => p.name.trim()).filter(Boolean);
   const research: ResearchControl = {
@@ -316,7 +248,7 @@ export function PdpStudio({
     [aiDesign, snapshot, snapshotRanking, matchedBenchmark, snapshotCtx],
   );
 
-  // AI design: runs after "Generate 5 Concepts" when an AI key is set.
+  // AI design: runs after "Generate 5 AI Designs" when an AI key is set.
   const aiReady = ai.active.apiKey.trim() !== "" && ai.active.model.trim() !== "";
   const [designStatus, setDesignStatus] = useState<
     { kind: "busy" } | { kind: "error"; text: string } | null
@@ -326,6 +258,7 @@ export function PdpStudio({
   const generate = async () => {
     dispatch({ type: "generate" });
     designRun.current?.abort();
+    setSavedNote(null);
     if (!aiReady) {
       setDesignStatus(null);
       return;
@@ -354,18 +287,34 @@ export function PdpStudio({
         ...(aiFetch ? { fetchImpl: aiFetch } : {}),
       });
       if (run.signal.aborted) return;
-      dispatch({
-        type: "setAiDesign",
-        design: {
-          concepts: result.concepts,
-          model: ai.active.model.trim(),
-          createdAt: new Date().toISOString(),
-          corrections: result.corrections,
-          cost: result.cost,
-          benchmarkPages: inspectedEntries(briefBenchmark).length,
-        },
-      });
+      const design = {
+        concepts: result.concepts,
+        model: ai.active.model.trim(),
+        createdAt: new Date().toISOString(),
+        corrections: result.corrections,
+        cost: result.cost,
+        benchmarkPages: inspectedEntries(briefBenchmark).length,
+      };
+      dispatch({ type: "setAiDesign", design });
       setDesignStatus(null);
+      // Share it, so anyone can reopen it later without an AI key or tokens.
+      if (signedIn && savedResults.configured) {
+        const problem = await savedResults.save({
+          mcat: mcat.trim(),
+          mcatId: mcatId.trim(),
+          contextJson,
+          products,
+          aiDesign: design,
+        });
+        if (run.signal.aborted) return;
+        setSavedNote(
+          problem
+            ? `Not added to Saved results: ${problem}`
+            : "Added to Saved results — anyone signed in can open it without an AI key.",
+        );
+      } else {
+        setSavedNote("Sign in to add results like this to Saved results for the team.");
+      }
     } catch (error) {
       if (run.signal.aborted) return;
       setDesignStatus({
@@ -374,6 +323,17 @@ export function PdpStudio({
       });
     }
   };
+  /** Show a saved result exactly as generated — no AI call. */
+  const openSavedResult = (result: SavedResult) => {
+    designRun.current?.abort();
+    setDesignStatus(null);
+    dispatch({ type: "loadSavedResult", data: result.data });
+    setSavedNote(
+      `Opened a saved result from ${new Date(result.createdAt).toLocaleString()} by ${result.createdBy}. No AI call was made.`,
+    );
+    setTab("concepts");
+  };
+
   const previewProduct =
     snapshot?.products[state.previewProductIndex] ?? snapshot?.products[0] ?? EMPTY_PRODUCT;
   const viewport = state.viewports[device];
@@ -431,17 +391,26 @@ export function PdpStudio({
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="mx-auto flex max-w-6xl flex-col gap-1.5 px-4 py-4 sm:px-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">
-              MCAT config shared via Supabase · @indiamart.com sign-in
-            </Badge>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-start justify-between gap-3 px-4 py-4 sm:px-6">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">
+                MCAT config shared via Supabase · @indiamart.com sign-in
+              </Badge>
+            </div>
+            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">PDP Genie</h1>
+            <p className="text-sm text-muted-foreground">
+              UI/UX benchmarking and layout concepts for IndiaMART product detail pages. Everything
+              you see is for layout design only.
+            </p>
           </div>
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">PDP Genie</h1>
-          <p className="text-sm text-muted-foreground">
-            UI/UX benchmarking and layout concepts for IndiaMART product detail pages. Everything
-            you see is for layout design only.
-          </p>
+          <SavedResultsButton
+            results={savedResults.results}
+            signedIn={signedIn && savedResults.configured}
+            loading={savedResults.loading}
+            errors={savedResults.errors}
+            onOpen={openSavedResult}
+          />
         </div>
       </header>
 
@@ -568,22 +537,10 @@ export function PdpStudio({
                 ))}
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Everything else is optional: edit details in the{" "}
-              <span className="font-medium">Product Cards</span> tab; seller and category details go
-              in the <span className="font-medium">JSON Context</span> tab.
-            </p>
             {!liveCtx.ok && (
               <p role="alert" className="text-xs text-destructive">
-                The JSON context has {liveCtx.issues.length > 1 ? "problems" : "a problem"}, so
-                previews will not use it.{" "}
-                <button
-                  type="button"
-                  className="font-medium underline underline-offset-2"
-                  onClick={() => setTab("context")}
-                >
-                  Open the JSON Context tab
-                </button>
+                The saved seller details could not be read, so previews will not use them. Use
+                &quot;Use as seller details&quot; on a product again to replace them.
               </p>
             )}
 
@@ -598,7 +555,7 @@ export function PdpStudio({
                 }}
               >
                 <Sparkles className="size-4" />
-                Generate 5 Concepts
+                Generate 5 AI Designs
               </Button>
               <span className="text-xs text-muted-foreground">
                 {aiReady
@@ -612,8 +569,7 @@ export function PdpStudio({
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="h-auto flex-wrap">
             <TabsTrigger value="concepts">Five Concepts</TabsTrigger>
-            <TabsTrigger value="products">Product Cards</TabsTrigger>
-            <TabsTrigger value="context">JSON Context</TabsTrigger>
+            <TabsTrigger value="mcat">MCAT Ranking</TabsTrigger>
             <TabsTrigger value="benchmark">Benchmark Comparison</TabsTrigger>
             <TabsTrigger value="sources">Sources</TabsTrigger>
             <TabsTrigger value="recommendation">Final Recommendation</TabsTrigger>
@@ -623,7 +579,8 @@ export function PdpStudio({
             {!snapshot || !snapshotCtx ? (
               <Card>
                 <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                  No concepts yet — fill the brief above and press &quot;Generate 5 Concepts&quot;.
+                  No concepts yet — fill the brief above and press &quot;Generate 5 AI
+                  Designs&quot;.
                 </CardContent>
               </Card>
             ) : (
@@ -637,11 +594,7 @@ export function PdpStudio({
                   All five concepts show the same product, so differences come from the layout
                   alone. Edit inputs and press Generate again to refresh previews.
                 </p>
-                <McatRankingSummary
-                  mcatId={snapshot.mcatId}
-                  ranking={snapshotRanking}
-                  active={activeConfig}
-                />
+                <BenchmarkedSites benchmark={matchedBenchmark?.file ?? null} />
                 <div
                   aria-label="Design source"
                   className="space-y-1 rounded-md border px-3 py-2 text-sm"
@@ -660,6 +613,11 @@ export function PdpStudio({
                         {aiDesign.cost !== null && ` · cost $${aiDesign.cost.toFixed(4)}`}. All
                         product data shown is real; the AI chose only the layout and emphasis.
                       </p>
+                      {savedNote && (
+                        <p role="status" className="text-xs text-muted-foreground">
+                          {savedNote}
+                        </p>
+                      )}
                       {aiDesign.corrections.length > 0 && (
                         <details className="text-xs text-muted-foreground">
                           <summary className="cursor-pointer">
@@ -764,72 +722,17 @@ export function PdpStudio({
             )}
           </TabsContent>
 
-          {/* Kept mounted (only hidden) so half-typed image URLs survive tab switches. */}
-          <TabsContent
-            value="products"
-            forceMount
-            hidden={tab !== "products"}
-            className="mt-4 space-y-3"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm text-muted-foreground">
-                Edit the five products, then press &quot;Generate 5 Concepts&quot; in the brief to
-                refresh the previews.
-              </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {products.map((product, index) => (
-                <ProductCardEditor
-                  key={`${product.id}-${revision}`}
-                  product={product}
-                  index={index}
-                  onChange={(patch) => dispatch({ type: "updateProduct", id: product.id, patch })}
-                />
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* The text lives in page state, so unmounting this tab loses nothing. */}
-          <TabsContent value="context" className="mt-4 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="context-json">JSON context editor</Label>
-              {liveCtx.ok ? (
-                <Badge variant="secondary">Valid JSON</Badge>
-              ) : (
-                <Badge variant="destructive">
-                  {liveCtx.issues.length > 1
-                    ? `${liveCtx.issues.length} problems`
-                    : `Invalid: ${liveCtx.error}`}
-                </Badge>
-              )}
-            </div>
+          <TabsContent value="mcat" className="mt-4 space-y-3">
             <p className="text-sm text-muted-foreground">
-              Seller and category details shared by all five products. Press &quot;Generate 5
-              Concepts&quot; in the brief to refresh the previews after editing.
+              How much buyers of this MCAT care about each part of a listing, from the shared MCAT
+              configuration. The AI designs and the Final Recommendation use this ranking.
             </p>
-            <Textarea
-              id="context-json"
-              rows={12}
-              className="font-mono text-xs"
-              value={contextJson}
-              onChange={(event) =>
-                dispatch({ type: "setContextJson", contextJson: event.target.value })
-              }
+            <McatRankingSummary
+              mcatId={snapshot ? snapshot.mcatId : mcatId.trim()}
+              ranking={snapshot ? snapshotRanking : liveRanking}
+              active={activeConfig}
             />
-            {!liveCtx.ok && (
-              <ul className="list-inside list-disc text-xs text-destructive">
-                {liveCtx.issues.map((issue) => (
-                  <li key={issue}>{issue}</li>
-                ))}
-              </ul>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Optional fields: isqAttributes, sellerRating, ratingCount, memberSince, gstVerified,
-              verifiedSupplier, responseRate. Leave out anything you don&apos;t have — previews show
-              it as not provided.
-            </p>
           </TabsContent>
-
           <TabsContent value="benchmark" className="mt-4">
             <BenchmarkPanel
               value={state.benchmarkNotes}

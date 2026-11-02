@@ -245,12 +245,18 @@ describe("Find products on IndiaMART by name", () => {
       "Filled from IndiaMART: price, 2 image(s), 3 ISQ value(s), MOQ, description.",
     );
     expect(within(row).getByRole("status")).not.toHaveTextContent("Closest listing found");
-    expect(screen.getByLabelText("Product 1 price")).toHaveValue("7800");
-    expect(screen.getByLabelText("Product 1 specs")).toHaveValue(
-      "Screen Size: 32 inch\nMounting Type: Wall Mount\nWeight: 4 kg",
-    );
     expect(within(row).getByLabelText("Brief product 1 name")).toHaveValue(
       "Sony BRAVIA 80 cm (32 inches) HD Ready Smart LED Google TV KD-32W835 (Black)",
+    );
+
+    // The previews show the listing's real price, specs and photo.
+    fireEvent.click(screen.getByRole("button", { name: "Generate 5 AI Designs" }));
+    const frame = screen.getAllByRole("region", { name: /preview/ })[0]!;
+    expect(within(frame).getByText("₹7800")).toBeInTheDocument();
+    expect(within(frame).getByText("Wall Mount")).toBeInTheDocument();
+    expect(within(frame).getByRole("img", { name: /Sony BRAVIA/ })).toHaveAttribute(
+      "src",
+      "https://5.imimg.com/data5/SELLER/Default/2024/11/468823536/CB/ZX/SV/105831662/32-inch-led-tv-500x500.jpeg",
     );
   });
 
@@ -344,20 +350,15 @@ describe("Find products on IndiaMART by name", () => {
     );
 
     fireEvent.click(within(row).getByRole("button", { name: "Use as seller details" }));
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "JSON Context" }), {
-      button: 0,
-      ctrlKey: false,
-    });
-    expect(
-      JSON.parse((screen.getByLabelText("JSON context editor") as HTMLTextAreaElement).value),
-    ).toEqual({
-      brand: "V & M Industries",
-      city: "Noida",
-      sellerRating: 3.6,
-      ratingCount: 28,
-      gstVerified: true,
-      memberSince: "2020",
-    });
+    expect(within(row).getByText(/Seller details added \(V & M Industries\)/)).toBeInTheDocument();
+
+    // The previews' seller card, ratings and trust badges now show this seller.
+    fireEvent.click(screen.getByRole("button", { name: "Generate 5 AI Designs" }));
+    const frame = screen.getAllByRole("region", { name: /preview/ })[0]!;
+    expect(within(frame).getAllByText("V & M Industries").length).toBeGreaterThan(0);
+    expect(within(frame).getByText(/Noida · Member since 2020/)).toBeInTheDocument();
+    expect(within(frame).getByText("3.6 / 5 (28 ratings)")).toBeInTheDocument();
+    expect(within(frame).getByText("GST Verified")).toBeInTheDocument();
   });
 
   it("rejects links that are not IndiaMART listings", async () => {

@@ -126,22 +126,44 @@ Design ${AI_CONCEPT_COUNT} genuinely different PDP layouts for this MCAT, each a
 Rules: never invent product facts, prices, ratings or features; only arrange and emphasise the blocks and ISQ names listed. Prefer blocks that have real data above the fold.`;
 }
 
-function parseJson(text: string): Record<string, unknown> | null {
+/**
+ * Read the model's answer as `{ concepts: [...] }`. Models vary: some return a bare
+ * array, use another key ("designs", "layouts"), or add text or code fences around
+ * the JSON. All of those are accepted; anything else gives null.
+ */
+export function parseDesignAnswer(text: string): Record<string, unknown> | null {
   const t = text
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
-    .replace(/```$/, "");
-  const start = t.indexOf("{");
-  const end = t.lastIndexOf("}");
-  if (start === -1 || end <= start) return null;
-  try {
-    const v = JSON.parse(t.slice(start, end + 1)) as unknown;
-    return typeof v === "object" && v !== null && !Array.isArray(v)
-      ? (v as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
+    .replace(/```\s*$/, "")
+    .trim();
+  const candidates = [t];
+  for (const [open, close] of [
+    ["{", "}"],
+    ["[", "]"],
+  ] as const) {
+    const start = t.indexOf(open);
+    const end = t.lastIndexOf(close);
+    if (start !== -1 && end > start) candidates.push(t.slice(start, end + 1));
   }
+  for (const candidate of candidates) {
+    let value: unknown;
+    try {
+      value = JSON.parse(candidate);
+    } catch {
+      continue;
+    }
+    if (Array.isArray(value)) return { concepts: value };
+    if (typeof value === "object" && value !== null) {
+      const obj = value as Record<string, unknown>;
+      if (Array.isArray(obj["concepts"])) return obj;
+      const list = Object.values(obj).find(
+        (v) => Array.isArray(v) && v.some((x) => typeof x === "object" && x !== null),
+      );
+      if (list) return { ...obj, concepts: list };
+    }
+  }
+  return null;
 }
 
 const blockList = (v: unknown): BlockKind[] =>
@@ -257,49 +279,71 @@ export async function designConcepts(options: {
   if (!settings.apiKey.trim()) throw new Error("Add your AI key in Your AI key.");
   if (!settings.model.trim()) throw new Error("Choose a model in Your AI key.");
 
-  const response = await fetchImpl(
-    `${settings.baseUrl.trim().replace(/\/+$/, "")}/chat/completions`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${settings.apiKey.trim()}`,
-        ...(provider === "openrouter" && typeof window !== "undefined"
-          ? { "HTTP-Referer": window.location.origin, "X-Title": "PDP Genie" }
-          : {}),
+  let cost: number | null = null;
+  let lastProblem = "";
+  // A second attempt helps when a model returns an empty or cut-off answer once.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const response = await fetchImpl(
+      `${settings.baseUrl.trim().replace(/\/+$/, "")}/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${settings.apiKey.trim()}`,
+          ...(provider === "openrouter" && typeof window !== "undefined"
+            ? { "HTTP-Referer": window.location.origin, "X-Title": "PDP Genie" }
+            : {}),
+        },
+        body: JSON.stringify({
+          model: settings.model.trim(),
+          messages: [{ role: "user", content: buildDesignBrief(inputs, mcat) }],
+          response_format: { type: "json_object" },
+          // Room for five designs plus any reasoning the model does first.
+          max_tokens: 12000,
+          temperature: 0.4,
+          ...(provider === "openrouter"
+            ? { reasoning: { effort: "low", exclude: true }, usage: { include: true } }
+            : {}),
+        }),
+        ...(signal ? { signal } : {}),
       },
-      body: JSON.stringify({
-        model: settings.model.trim(),
-        messages: [{ role: "user", content: buildDesignBrief(inputs, mcat) }],
-        response_format: { type: "json_object" },
-        max_tokens: 4000,
-        temperature: 0.4,
-        ...(provider === "openrouter"
-          ? { reasoning: { effort: "low", exclude: true }, usage: { include: true } }
-          : {}),
-      }),
-      ...(signal ? { signal } : {}),
-    },
-  );
-  if (!response.ok) {
-    let detail = "";
-    try {
-      const err = (await response.json()) as { error?: { message?: unknown } };
-      detail = typeof err.error?.message === "string" ? ` — ${err.error.message}` : "";
-    } catch {
-      /* not JSON */
+    );
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const err = (await response.json()) as { error?: { message?: unknown } };
+        detail = typeof err.error?.message === "string" ? ` — ${err.error.message}` : "";
+      } catch {
+        /* not JSON */
+      }
+      throw new Error(`HTTP ${response.status}${detail}`);
     }
-    throw new Error(`HTTP ${response.status}${detail}`);
+    const body = (await response.json()) as {
+      choices?: { message?: { content?: unknown }; finish_reason?: unknown }[];
+      usage?: { cost?: unknown };
+    };
+    if (typeof body.usage?.cost === "number") cost = (cost ?? 0) + body.usage.cost;
+    const choice = body.choices?.[0];
+    const content = typeof choice?.message?.content === "string" ? choice.message.content : "";
+    const answer = parseDesignAnswer(content);
+    const { concepts, corrections } = validateDesign(answer, inputs);
+    const usable = concepts.filter((c) => c.source === "ai").length;
+    if (usable > 0) {
+      return {
+        concepts,
+        corrections: attempt > 1 ? [`First answer: ${lastProblem}`, ...corrections] : corrections,
+        cost,
+      };
+    }
+    lastProblem = !content.trim()
+      ? "the model returned no text (it may have spent its whole budget on reasoning)"
+      : choice?.finish_reason === "length"
+        ? "the answer was cut off before it was complete"
+        : answer
+          ? "none of the designs it returned were usable"
+          : "the answer was not readable JSON";
   }
-  const body = (await response.json()) as {
-    choices?: { message?: { content?: unknown } }[];
-    usage?: { cost?: unknown };
-  };
-  const content = body.choices?.[0]?.message?.content;
-  const { concepts, corrections } = validateDesign(
-    parseJson(typeof content === "string" ? content : ""),
-    inputs,
+  throw new Error(
+    `${lastProblem}, twice. Try another model in Your AI key (e.g. DeepSeek V4 Flash) and generate again`,
   );
-  const cost = typeof body.usage?.cost === "number" ? body.usage.cost : null;
-  return { concepts, corrections, cost };
 }

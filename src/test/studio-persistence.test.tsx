@@ -66,7 +66,7 @@ describe("Studio persistence and import", () => {
       );
     });
     await waitFor(() => expect(screen.getByLabelText("MCAT name")).toHaveValue("Imported MCAT"));
-    expect(screen.getByLabelText("Product 1 name")).toHaveValue("Imported product");
+    expect(screen.getByLabelText("Brief product 1 name")).toHaveValue("Imported product");
   });
 
   it("keeps a backup of unreadable saved data instead of silently overwriting it", async () => {

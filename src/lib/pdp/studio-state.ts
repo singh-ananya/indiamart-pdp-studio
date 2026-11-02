@@ -161,6 +161,52 @@ const StoredAiDesignSchema = z.object({
   benchmarkPages: z.number().int().min(0),
 });
 
+// ---------------------------------------------------------------------------
+// Saved results (shared in Supabase): a finished AI design with its inputs
+// ---------------------------------------------------------------------------
+
+/** One generated result: the brief it was made from and the AI's five designs. */
+export interface SavedResultData {
+  mcat: string;
+  mcatId: string;
+  /** Seller details used by the previews. */
+  contextJson: string;
+  products: Product[];
+  aiDesign: AiDesign;
+}
+
+const SavedResultSchema = z.object({
+  version: z.literal(1),
+  mcat: z.string(),
+  mcatId: z.string(),
+  contextJson: z.string(),
+  products: ProductsSchema,
+  aiDesign: StoredAiDesignSchema,
+});
+
+export function serializeSavedResult(data: SavedResultData): Record<string, unknown> {
+  return { version: 1, ...data };
+}
+
+/** Validate a saved result read back from storage; nothing invalid is ever shown. */
+export function validateSavedResult(
+  raw: unknown,
+): { ok: true; data: SavedResultData } | { ok: false; error: string } {
+  const result = SavedResultSchema.safeParse(raw);
+  if (!result.success) return { ok: false, error: formatIssues(result.error)[0] ?? "invalid" };
+  const d = result.data;
+  return {
+    ok: true,
+    data: {
+      mcat: d.mcat,
+      mcatId: d.mcatId,
+      contextJson: d.contextJson,
+      products: normalizeProducts(d.products),
+      aiDesign: { ...d.aiDesign, concepts: d.aiDesign.concepts.map(toConcept) },
+    },
+  };
+}
+
 /** Ids the preferred concept may have: fixed strategies or the AI's five. */
 const isConceptId = (id: string) => conceptIds.includes(id) || /^ai-[1-5]$/.test(id);
 
@@ -368,6 +414,7 @@ export type StudioAction =
   | { type: "setPreferred"; id: string | null }
   | { type: "setBenchmarkNotes"; notes: string }
   | { type: "setAiDesign"; design: AiDesign | null }
+  | { type: "loadSavedResult"; data: SavedResultData }
   | { type: "applyImport"; data: ImportedData };
 
 export function studioReducer(state: StudioState, action: StudioAction): StudioState {
@@ -419,6 +466,24 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
       return { ...state, benchmarkNotes: action.notes };
     case "setAiDesign":
       return { ...state, aiDesign: action.design, preferredId: null };
+    case "loadSavedResult":
+      // Shows a past result exactly as generated, without calling the AI again.
+      return {
+        ...state,
+        mcat: action.data.mcat,
+        mcatId: action.data.mcatId,
+        contextJson: action.data.contextJson,
+        products: action.data.products,
+        previewProductIndex: 0,
+        preferredId: null,
+        snapshot: {
+          mcat: action.data.mcat.trim(),
+          mcatId: action.data.mcatId.trim(),
+          contextJson: action.data.contextJson,
+          products: action.data.products.map((p) => ({ ...p, imageUrls: [...p.imageUrls] })),
+        },
+        aiDesign: action.data.aiDesign,
+      };
     case "applyImport":
       return {
         ...state,
